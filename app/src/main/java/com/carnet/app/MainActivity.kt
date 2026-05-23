@@ -43,8 +43,8 @@ import java.util.UUID
  *   1. CameraX PreviewView + permission flow.
  *   2. Live HUD overlay (now burned into both preview and video via OverlayEffect).
  *   3. VideoCapture wired to Record button.
- *   4. Session-config screen (subject / session label / experiment label).   <- next
- *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.
+ *   4. Session-config screen (subject / session label / experiment label).
+ *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.   <- next
  *   6. Bios companion-write of recording_session_completed event.
  */
 class MainActivity : AppCompatActivity() {
@@ -58,10 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var firstFrameLogged = false
     private var orientationListener: OrientationEventListener? = null
     @Volatile private var hudRotation: Int = 0
-
-    // Placeholders until step 4 wires the session-config screen.
-    private val subject = "subject"
-    private val sessionLabel = "SCAFFOLD"
+    private lateinit var sessionConfig: SessionConfig
 
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -74,8 +71,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        hudPainter = HudPainter(this).apply { subject = this@MainActivity.subject }
+        sessionConfig = SessionConfig.load(this)
+        hudPainter = HudPainter(this).apply { subject = sessionConfig.subject }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
+        binding.configButton.setOnClickListener { showConfigDialog() }
         orientationListener = object : OrientationEventListener(this) {
             override fun onOrientationChanged(degrees: Int) {
                 if (degrees == ORIENTATION_UNKNOWN) return
@@ -220,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         val today = DATE_FORMAT.format(Date())
         val uid = UUID.randomUUID().toString().take(8).uppercase()
         val sessionNumber = nextSessionNumber()
-        val sessionTag = "V${sessionNumber.toString().padStart(2, '0')}_$sessionLabel"
+        val sessionTag = "V${sessionNumber.toString().padStart(2, '0')}_${sessionConfig.sessionLabel}"
         val displayName = "${sessionTag}_${today}_$uid"
 
         val contentValues = ContentValues().apply {
@@ -244,15 +243,51 @@ class MainActivity : AppCompatActivity() {
                     is VideoRecordEvent.Start -> {
                         hudPainter.recording = true
                         binding.recordButton.setImageResource(R.drawable.btn_record_active)
+                        binding.configButton.isEnabled = false
+                        binding.configButton.alpha = 0.3f
                     }
                     is VideoRecordEvent.Finalize -> {
                         hudPainter.recording = false
                         hudPainter.uid = "--------"
                         binding.recordButton.setImageResource(R.drawable.btn_record_idle)
+                        binding.configButton.isEnabled = true
+                        binding.configButton.alpha = 1f
                         activeRecording = null
                     }
                 }
             }
+    }
+
+    private fun showConfigDialog() {
+        if (activeRecording != null) return
+        val view = layoutInflater.inflate(R.layout.dialog_session_config, null)
+        val subjectInput = view.findViewById<android.widget.EditText>(R.id.subject_input)
+        val sessionInput = view.findViewById<android.widget.EditText>(R.id.session_label_input)
+        val experimentInput = view.findViewById<android.widget.EditText>(R.id.experiment_label_input)
+        subjectInput.setText(sessionConfig.subject)
+        sessionInput.setText(sessionConfig.sessionLabel)
+        experimentInput.setText(sessionConfig.experimentLabel)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.config_title)
+            .setView(view)
+            .setPositiveButton(R.string.config_save) { _, _ ->
+                val newConfig = SessionConfig(
+                    subject = SessionConfig.sanitise(
+                        subjectInput.text.toString(), SessionConfig.DEFAULT_SUBJECT,
+                    ),
+                    sessionLabel = SessionConfig.sanitise(
+                        sessionInput.text.toString(), SessionConfig.DEFAULT_SESSION_LABEL,
+                    ),
+                    experimentLabel = SessionConfig.sanitise(
+                        experimentInput.text.toString(), SessionConfig.DEFAULT_EXPERIMENT_LABEL,
+                    ),
+                )
+                sessionConfig = newConfig
+                SessionConfig.save(this, newConfig)
+                hudPainter.subject = newConfig.subject
+            }
+            .setNegativeButton(R.string.config_cancel, null)
+            .show()
     }
 
     /** Scan Movies/Carnet/ for existing V## files and return next free number. */

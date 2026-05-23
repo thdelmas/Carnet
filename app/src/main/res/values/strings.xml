@@ -3,4 +3,11 @@
     <string name="app_name">Carnet</string>
     <string name="permission_denied">Camera and microphone required.\nGrant in system settings.</string>
     <string name="record_button">Record</string>
+    <string name="config_button">Session config</string>
+    <string name="config_title">Session config</string>
+    <string name="config_subject">Subject</string>
+    <string name="config_session_label">Session label</string>
+    <string name="config_experiment_label">Experiment label</string>
+    <string name="config_save">Save</string>
+    <string name="config_cancel">Cancel</string>
 </resources>

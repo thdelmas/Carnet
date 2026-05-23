@@ -37,6 +37,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <ImageButton
+        android:id="@+id/config_button"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginBottom="20dp"
+        android:layout_marginEnd="32dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/config_button"
+        android:src="@drawable/ic_config"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <TextView
         android:id="@+id/permission_message"
         android:layout_width="wrap_content"
