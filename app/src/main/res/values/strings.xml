@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Carnet</string>
+    <string name="scaffold_placeholder">Carnet · v0.1 scaffold</string>
+</resources>

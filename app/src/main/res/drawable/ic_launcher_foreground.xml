@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Viewfinder corner brackets — Carnet's signature motif. -->
+    <path
+        android:fillColor="#B4C8A0"
+        android:pathData="M30,30 L42,30 L42,32 L32,32 L32,42 L30,42 Z" />
+    <path
+        android:fillColor="#B4C8A0"
+        android:pathData="M78,30 L66,30 L66,32 L76,32 L76,42 L78,42 Z" />
+    <path
+        android:fillColor="#B4C8A0"
+        android:pathData="M30,78 L42,78 L42,76 L32,76 L32,66 L30,66 Z" />
+    <path
+        android:fillColor="#B4C8A0"
+        android:pathData="M78,78 L66,78 L66,76 L76,76 L76,66 L78,66 Z" />
+
+    <!-- REC dot at centre. -->
+    <path
+        android:fillColor="#FF3030"
+        android:pathData="M54,54 m-7,0 a7,7 0 1,1 14,0 a7,7 0 1,1 -14,0 Z" />
+</vector>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="carnet_black">#080E0A</color>
+    <color name="carnet_panel">#0C140F</color>
+    <color name="carnet_text">#E6EFD6</color>
+    <color name="carnet_text_dim">#B4C8A0</color>
+    <color name="carnet_accent">#78A06E</color>
+    <color name="carnet_rec">#FF3030</color>
+</resources>

@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+build/
+captures/
+app/build/
+**/build/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+release.keystore
+*.jks
+.env
+.env.*
+
+# Claude Code session artifacts
+.claude/
