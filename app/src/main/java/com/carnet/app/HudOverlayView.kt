@@ -2,6 +2,7 @@ package com.carnet.app
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.AttributeSet
@@ -37,21 +38,31 @@ class HudOverlayView @JvmOverloads constructor(
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
 
+    // Drop shadow on text paints so the HUD stays legible against any camera frame
+    // (sky, white walls, skin tones). 4dp radius black halo is enough contrast without
+    // looking like a UI flourish.
+    private val shadowRadius = dp(3f)
+    private val shadowColor = Color.BLACK
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.carnet_text)
-        typeface = Typeface.MONOSPACE
-        textSize = sp(13f)
-        letterSpacing = 0.1f
+        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        textSize = sp(16f)
+        letterSpacing = 0.05f
+        setShadowLayer(shadowRadius, 0f, 0f, shadowColor)
     }
     private val dimPaint = Paint(textPaint).apply {
         color = ContextCompat.getColor(context, R.color.carnet_text_dim)
+        setShadowLayer(shadowRadius, 0f, 0f, shadowColor)
     }
     private val recPaint = Paint(textPaint).apply {
         color = ContextCompat.getColor(context, R.color.carnet_rec)
+        setShadowLayer(shadowRadius, 0f, 0f, shadowColor)
     }
     private val recDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.carnet_rec)
         style = Paint.Style.FILL
+        setShadowLayer(shadowRadius, 0f, 0f, shadowColor)
     }
 
     private val ticker = object : Runnable {

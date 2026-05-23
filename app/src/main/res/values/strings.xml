@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Carnet</string>
-    <string name="permission_denied">Camera permission required.\nGrant in system settings.</string>
+    <string name="permission_denied">Camera and microphone required.\nGrant in system settings.</string>
+    <string name="record_button">Record</string>
 </resources>
