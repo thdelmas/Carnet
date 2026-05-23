@@ -16,9 +16,9 @@ import com.carnet.app.databinding.ActivityMainBinding
  *
  * v0.1 scaffold: live camera preview + permission flow. Real implementation
  * lands in follow-up commits:
- *   1. CameraX PreviewView + permission flow.   <- this commit
+ *   1. CameraX PreviewView + permission flow.
  *   2. Live HUD overlay (custom View drawing Subject / Session / Date / Time / REC).
- *   3. VideoCapture wired to Record button.
+ *   3. VideoCapture wired to Record button.   <- next
  *   4. Session-config screen (subject / session label / experiment label).
  *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.
  *   6. Bios companion-write of recording_session_completed event.
