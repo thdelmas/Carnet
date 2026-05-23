@@ -3,7 +3,6 @@ package com.carnet.app
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PorterDuff
 import android.graphics.Typeface
 import androidx.core.content.ContextCompat
 import android.content.Context
@@ -48,7 +47,9 @@ class HudPainter(context: Context) {
     }
 
     fun draw(canvas: Canvas, width: Int, height: Int) {
-        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        // Caller is responsible for clearing the canvas before invoking us — they may
+        // need to apply transforms (rotation/mirror) before drawing, and the clear has
+        // to happen in untransformed buffer coordinates.
         val shortSide = minOf(width, height).toFloat()
         val textSize = shortSide * TEXT_FRACTION
         val pad = shortSide * PAD_FRACTION
@@ -130,7 +131,7 @@ class HudPainter(context: Context) {
 
     companion object {
         // Fractions of the shortest frame side.
-        private const val TEXT_FRACTION = 0.022f
+        private const val TEXT_FRACTION = 0.035f
         private const val PAD_FRACTION = 0.025f
         private const val LINE_GAP_FRACTION = 0.006f
         private const val SHADOW_FRACTION = 0.004f

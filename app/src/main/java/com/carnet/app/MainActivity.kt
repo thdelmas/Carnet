@@ -6,10 +6,14 @@ import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Log
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.View
+import android.graphics.Color
+import android.graphics.PorterDuff
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraEffect
@@ -50,6 +54,10 @@ class MainActivity : AppCompatActivity() {
     private var videoCapture: VideoCapture<Recorder>? = null
     private var activeRecording: Recording? = null
     private var overlayEffect: OverlayEffect? = null
+    private var overlayThread: HandlerThread? = null
+    private var firstFrameLogged = false
+    private var orientationListener: OrientationEventListener? = null
+    @Volatile private var hudRotation: Int = 0
 
     // Placeholders until step 4 wires the session-config screen.
     private val subject = "subject"
@@ -68,6 +76,16 @@ class MainActivity : AppCompatActivity() {
 
         hudPainter = HudPainter(this).apply { subject = this@MainActivity.subject }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
+        orientationListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                // Quantize to the nearest 90° step. Drives only the HUD's in-canvas rotation —
+                // we deliberately don't touch preview/videoCapture targetRotation because the
+                // activity is portrait-locked and re-rotating the camera buffer into a portrait
+                // FIT_CENTER box just squishes the image.
+                hudRotation = ((degrees + 45) / 90 % 4) * 90
+            }
+        }
 
         if (hasAllPermissions()) {
             bindCamera()
@@ -76,9 +94,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        orientationListener?.enable()
+    }
+
+    override fun onPause() {
+        orientationListener?.disable()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         overlayEffect?.close()
         overlayEffect = null
+        overlayThread?.quitSafely()
+        overlayThread = null
         super.onDestroy()
     }
 
@@ -91,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
             val provider = providerFuture.get()
-            val preview = Preview.Builder().build().also {
+            val previewUseCase = Preview.Builder().build().also {
                 it.setSurfaceProvider(binding.preview.surfaceProvider)
             }
             val recorder = Recorder.Builder()
@@ -99,20 +129,70 @@ class MainActivity : AppCompatActivity() {
                 .build()
             videoCapture = VideoCapture.withOutput(recorder)
 
+            val glThread = HandlerThread("Carnet-OverlayGL").apply { start() }
+            overlayThread = glThread
             val effect = OverlayEffect(
                 CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE,
                 0,
-                Handler(Looper.getMainLooper()),
+                Handler(glThread.looper),
             ) { error -> Log.e(TAG, "overlay effect error", error) }
             effect.setOnDrawListener { frame ->
-                val size = frame.size
-                hudPainter.draw(frame.overlayCanvas, size.width, size.height)
+                if (!firstFrameLogged) {
+                    firstFrameLogged = true
+                    Log.i(
+                        TAG,
+                        "first overlay frame: size=${frame.size} rotation=${frame.rotationDegrees} " +
+                            "mirror=${frame.isMirroring} crop=${frame.cropRect}",
+                    )
+                }
+                val canvas = frame.overlayCanvas
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                val bufferW = frame.size.width
+                val bufferH = frame.size.height
+                val rotation = frame.rotationDegrees
+                val mirror = frame.isMirroring
+                // Pipeline maps buffer(x,y) -> display(displayW-y, displayH-x) for the front
+                // camera (rotation 270 CW then horizontal mirror in display). Invert it on the
+                // canvas so HudPainter can draw in display coordinates and the HUD lands at the
+                // display corners after the pipeline.
+                val displayW: Int
+                val displayH: Int
+                if (rotation == 90 || rotation == 270) {
+                    displayW = bufferH
+                    displayH = bufferW
+                } else {
+                    displayW = bufferW
+                    displayH = bufferH
+                }
+                val deviceRot = hudRotation
+                val hudW: Int
+                val hudH: Int
+                if (deviceRot == 90 || deviceRot == 270) {
+                    hudW = displayH
+                    hudH = displayW
+                } else {
+                    hudW = displayW
+                    hudH = displayH
+                }
+                canvas.save()
+                canvas.translate(bufferW / 2f, bufferH / 2f)
+                canvas.rotate(-rotation.toFloat())
+                if (mirror) canvas.scale(-1f, 1f)
+                canvas.translate(-displayW / 2f, -displayH / 2f)
+                // Additional pivot around the display center so the HUD reads upright in the
+                // viewer's current physical orientation. Display dims fed to HudPainter swap
+                // when deviceRot is 90/270 so corners still land at the rotated screen corners.
+                canvas.translate(displayW / 2f, displayH / 2f)
+                canvas.rotate(-deviceRot.toFloat())
+                canvas.translate(-hudW / 2f, -hudH / 2f)
+                hudPainter.draw(canvas, hudW, hudH)
+                canvas.restore()
                 true
             }
             overlayEffect = effect
 
             val group = UseCaseGroup.Builder()
-                .addUseCase(preview)
+                .addUseCase(previewUseCase)
                 .addUseCase(videoCapture!!)
                 .addEffect(effect)
                 .build()
