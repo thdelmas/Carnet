@@ -13,4 +13,8 @@
     <string name="history_button">Recordings history</string>
     <string name="history_title">Sessions</string>
     <string name="history_empty">No recordings yet</string>
+    <string name="cadence_channel_name">Cadence reminders</string>
+    <string name="cadence_channel_description">Weekly nudge to record the next Carnet session.</string>
+    <string name="cadence_notif_title">Carnet</string>
+    <string name="cadence_notif_body">A week since your last session — record this week\'s.</string>
 </resources>

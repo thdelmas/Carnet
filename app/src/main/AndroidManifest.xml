@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Weekly cadence reminder notification (Android 13+). Soft requirement: if denied
+         the worker still runs, it just can't surface the prompt. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Bios companion-app integration (read vitals at record start, write session events). -->
     <uses-permission android:name="com.bios.app.permission.READ_HEALTH" />
     <uses-permission android:name="com.bios.app.permission.WRITE_COMPANION" />

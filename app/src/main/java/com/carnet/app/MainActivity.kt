@@ -64,8 +64,13 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (results.values.all { it }) bindCamera() else showPermissionDenied()
+        val cameraAudioGranted = REQUIRED_PERMISSIONS.all { results[it] == true }
+        if (cameraAudioGranted) bindCamera() else showPermissionDenied()
     }
+
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* best-effort: cadence worker no-ops when denied */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         biosClient = BiosClient(this)
         sidecarWriter = SidecarWriter(this)
         biosCompanionWriter = BiosCompanionWriter(this)
+        CadenceReminder.ensureChannel(this)
         hudPainter = HudPainter(this).apply {
             subject = sessionConfig.subject
             session = sessionConfig.sessionLabel
@@ -299,10 +305,20 @@ class MainActivity : AppCompatActivity() {
                                 recordStartMillis = recordStartMillis,
                                 biosSnapshot = biosSnapshot,
                             )
+                            CadenceReminder.scheduleNext(this)
+                            maybeRequestNotificationPermission()
                         }
                     }
                 }
             }
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        if (CadenceReminder.hasNotificationPermission(this)) return
+        // Only ask after the first successful take so the prompt has context — "we finished a
+        // session, here's why we want to ping you next week" rather than out of the blue.
+        requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun writeSidecar(
