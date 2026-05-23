@@ -44,8 +44,8 @@ import java.util.UUID
  *   2. Live HUD overlay (now burned into both preview and video via OverlayEffect).
  *   3. VideoCapture wired to Record button.
  *   4. Session-config screen (subject / session label / experiment label).
- *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.   <- next
- *   6. Bios companion-write of recording_session_completed event.
+ *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.
+ *   6. Bios companion-write of recording_session_completed event.   <- next
  */
 class MainActivity : AppCompatActivity() {
 
@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
     private var orientationListener: OrientationEventListener? = null
     @Volatile private var hudRotation: Int = 0
     private lateinit var sessionConfig: SessionConfig
+    private lateinit var biosClient: BiosClient
+    private lateinit var sidecarWriter: SidecarWriter
 
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -72,6 +74,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         sessionConfig = SessionConfig.load(this)
+        biosClient = BiosClient(this)
+        sidecarWriter = SidecarWriter(this)
         hudPainter = HudPainter(this).apply { subject = sessionConfig.subject }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
         binding.configButton.setOnClickListener { showConfigDialog() }
@@ -235,6 +239,12 @@ class MainActivity : AppCompatActivity() {
         hudPainter.uid = uid
         hudPainter.session = sessionTag
 
+        // Snapshot Bios vitals AT record-start (per manifesto: vitals reflect the moment the
+        // session began, not when the file was finalised). Null if Bios is unavailable.
+        val biosSnapshot = biosClient.snapshot()
+        val recordStartMillis = System.currentTimeMillis()
+        val configAtStart = sessionConfig
+
         activeRecording = capture.output
             .prepareRecording(this, output)
             .withAudioEnabled()
@@ -253,9 +263,49 @@ class MainActivity : AppCompatActivity() {
                         binding.configButton.isEnabled = true
                         binding.configButton.alpha = 1f
                         activeRecording = null
+                        if (!event.hasError()) {
+                            writeSidecar(
+                                baseName = displayName,
+                                subject = configAtStart.subject,
+                                sessionLabel = configAtStart.sessionLabel,
+                                experimentLabel = configAtStart.experimentLabel,
+                                sessionNumber = sessionNumber,
+                                uid = uid,
+                                dateLocal = today,
+                                recordStartMillis = recordStartMillis,
+                                biosSnapshot = biosSnapshot,
+                            )
+                        }
                     }
                 }
             }
+    }
+
+    private fun writeSidecar(
+        baseName: String,
+        subject: String,
+        sessionLabel: String,
+        experimentLabel: String,
+        sessionNumber: Int,
+        uid: String,
+        dateLocal: String,
+        recordStartMillis: Long,
+        biosSnapshot: BiosSnapshot?,
+    ) {
+        val metadata = SidecarMetadata(
+            schemaVersion = SidecarWriter.SCHEMA_VERSION,
+            filename = "$baseName.mp4",
+            subject = subject,
+            sessionLabel = sessionLabel,
+            experimentLabel = experimentLabel,
+            sessionNumber = sessionNumber,
+            uid = uid,
+            dateLocal = dateLocal,
+            recordStartMillis = recordStartMillis,
+            recordEndMillis = System.currentTimeMillis(),
+            biosSnapshot = biosSnapshot,
+        )
+        sidecarWriter.write(baseName, CARNET_RELATIVE_PATH, metadata)
     }
 
     private fun showConfigDialog() {
