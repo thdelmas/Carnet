@@ -83,6 +83,9 @@ class MainActivity : AppCompatActivity() {
         }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
         binding.configButton.setOnClickListener { showConfigDialog() }
+        binding.historyButton.setOnClickListener {
+            startActivity(android.content.Intent(this, HistoryActivity::class.java))
+        }
         orientationListener = object : OrientationEventListener(this) {
             override fun onOrientationChanged(degrees: Int) {
                 if (degrees == ORIENTATION_UNKNOWN) return

@@ -10,4 +10,7 @@
     <string name="config_experiment_label">Experiment label</string>
     <string name="config_save">Save</string>
     <string name="config_cancel">Cancel</string>
+    <string name="history_button">Recordings history</string>
+    <string name="history_title">Sessions</string>
+    <string name="history_empty">No recordings yet</string>
 </resources>
