@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.MirrorMode
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
@@ -133,7 +134,13 @@ class MainActivity : AppCompatActivity() {
             val recorder = Recorder.Builder()
                 .setQualitySelector(QualitySelector.from(Quality.FHD))
                 .build()
-            videoCapture = VideoCapture.withOutput(recorder)
+            // Front-camera VideoCapture defaults to recording the un-mirrored ("true") image
+            // while PreviewView mirrors for the selfie view — that asymmetry left the HUD
+            // looking right in the preview and horizontally flipped in the encoded file.
+            // Force mirroring on the front camera so both consumers see the same pipeline.
+            videoCapture = VideoCapture.Builder(recorder)
+                .setMirrorMode(MirrorMode.MIRROR_MODE_ON_FRONT_ONLY)
+                .build()
 
             val glThread = HandlerThread("Carnet-OverlayGL").apply { start() }
             overlayThread = glThread
