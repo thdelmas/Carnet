@@ -5,12 +5,18 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
+import android.util.Log
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.effects.OverlayEffect
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.MediaStoreOutputOptions
 import androidx.camera.video.Quality
@@ -31,7 +37,7 @@ import java.util.UUID
  *
  * v0.1 scaffold roadmap:
  *   1. CameraX PreviewView + permission flow.
- *   2. Live HUD overlay.
+ *   2. Live HUD overlay (now burned into both preview and video via OverlayEffect).
  *   3. VideoCapture wired to Record button.
  *   4. Session-config screen (subject / session label / experiment label).   <- next
  *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.
@@ -40,8 +46,10 @@ import java.util.UUID
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var hudPainter: HudPainter
     private var videoCapture: VideoCapture<Recorder>? = null
     private var activeRecording: Recording? = null
+    private var overlayEffect: OverlayEffect? = null
 
     // Placeholders until step 4 wires the session-config screen.
     private val subject = "subject"
@@ -58,7 +66,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.hud.subject = subject
+        hudPainter = HudPainter(this).apply { subject = this@MainActivity.subject }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
 
         if (hasAllPermissions()) {
@@ -66,6 +74,12 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissions.launch(REQUIRED_PERMISSIONS)
         }
+    }
+
+    override fun onDestroy() {
+        overlayEffect?.close()
+        overlayEffect = null
+        super.onDestroy()
     }
 
     private fun hasAllPermissions(): Boolean = REQUIRED_PERMISSIONS.all {
@@ -84,13 +98,26 @@ class MainActivity : AppCompatActivity() {
                 .setQualitySelector(QualitySelector.from(Quality.FHD))
                 .build()
             videoCapture = VideoCapture.withOutput(recorder)
+
+            val effect = OverlayEffect(
+                CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE,
+                0,
+                Handler(Looper.getMainLooper()),
+            ) { error -> Log.e(TAG, "overlay effect error", error) }
+            effect.setOnDrawListener { frame ->
+                val size = frame.size
+                hudPainter.draw(frame.overlayCanvas, size.width, size.height)
+                true
+            }
+            overlayEffect = effect
+
+            val group = UseCaseGroup.Builder()
+                .addUseCase(preview)
+                .addUseCase(videoCapture!!)
+                .addEffect(effect)
+                .build()
             provider.unbindAll()
-            provider.bindToLifecycle(
-                this,
-                CameraSelector.DEFAULT_FRONT_CAMERA,
-                preview,
-                videoCapture,
-            )
+            provider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, group)
         }, ContextCompat.getMainExecutor(this))
     }
 
@@ -113,7 +140,8 @@ class MainActivity : AppCompatActivity() {
         val today = DATE_FORMAT.format(Date())
         val uid = UUID.randomUUID().toString().take(8).uppercase()
         val sessionNumber = nextSessionNumber()
-        val displayName = "V${sessionNumber.toString().padStart(2, '0')}_${sessionLabel}_${today}_$uid"
+        val sessionTag = "V${sessionNumber.toString().padStart(2, '0')}_$sessionLabel"
+        val displayName = "${sessionTag}_${today}_$uid"
 
         val contentValues = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, "$displayName.mp4")
@@ -125,8 +153,8 @@ class MainActivity : AppCompatActivity() {
             .setContentValues(contentValues)
             .build()
 
-        binding.hud.uid = uid
-        binding.hud.session = "V${sessionNumber.toString().padStart(2, '0')}_$sessionLabel"
+        hudPainter.uid = uid
+        hudPainter.session = sessionTag
 
         activeRecording = capture.output
             .prepareRecording(this, output)
@@ -134,12 +162,12 @@ class MainActivity : AppCompatActivity() {
             .start(ContextCompat.getMainExecutor(this)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
-                        binding.hud.recording = true
+                        hudPainter.recording = true
                         binding.recordButton.setImageResource(R.drawable.btn_record_active)
                     }
                     is VideoRecordEvent.Finalize -> {
-                        binding.hud.recording = false
-                        binding.hud.uid = "--------"
+                        hudPainter.recording = false
+                        hudPainter.uid = "--------"
                         binding.recordButton.setImageResource(R.drawable.btn_record_idle)
                         activeRecording = null
                     }
@@ -171,6 +199,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val TAG = "Carnet"
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
