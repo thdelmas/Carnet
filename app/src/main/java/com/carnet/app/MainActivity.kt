@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Log
+import android.util.Rational
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.View
@@ -20,6 +21,7 @@ import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.ViewPort
 import androidx.camera.effects.OverlayEffect
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.MediaStoreOutputOptions
@@ -141,40 +143,39 @@ class MainActivity : AppCompatActivity() {
                 Handler(glThread.looper),
             ) { error -> Log.e(TAG, "overlay effect error", error) }
             effect.setOnDrawListener { frame ->
+                val canvas = frame.overlayCanvas
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                val rotation = frame.rotationDegrees
+                val mirror = frame.isMirroring
+                val crop = frame.cropRect
+                val cropW = crop.width()
+                val cropH = crop.height()
                 if (!firstFrameLogged) {
                     firstFrameLogged = true
                     Log.i(
                         TAG,
-                        "first overlay frame: size=${frame.size} rotation=${frame.rotationDegrees} " +
-                            "mirror=${frame.isMirroring} crop=${frame.cropRect}",
+                        "first overlay frame: size=${frame.size} rotation=$rotation " +
+                            "mirror=$mirror crop=$crop",
                     )
-                    val bw = frame.size.width
-                    val bh = frame.size.height
-                    val aspect = if (frame.rotationDegrees == 90 || frame.rotationDegrees == 270) {
-                        bh.toFloat() / bw.toFloat()
+                    val aspect = if (rotation == 90 || rotation == 270) {
+                        cropH.toFloat() / cropW.toFloat()
                     } else {
-                        bw.toFloat() / bh.toFloat()
+                        cropW.toFloat() / cropH.toFloat()
                     }
                     binding.grid.post { binding.grid.contentAspect = aspect }
                 }
-                val canvas = frame.overlayCanvas
-                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-                val bufferW = frame.size.width
-                val bufferH = frame.size.height
-                val rotation = frame.rotationDegrees
-                val mirror = frame.isMirroring
-                // Pipeline maps buffer(x,y) -> display(displayW-y, displayH-x) for the front
-                // camera (rotation 270 CW then horizontal mirror in display). Invert it on the
-                // canvas so HudPainter can draw in display coordinates and the HUD lands at the
-                // display corners after the pipeline.
+                // Pipeline rotates the cropRect (not the full buffer) CW by rotation then
+                // mirrors in display orientation. Anchoring to cropRect makes the HUD land at
+                // the corners both Preview and VideoCapture actually consume, so it ends up
+                // burned into the encoded video, not just the preview.
                 val displayW: Int
                 val displayH: Int
                 if (rotation == 90 || rotation == 270) {
-                    displayW = bufferH
-                    displayH = bufferW
+                    displayW = cropH
+                    displayH = cropW
                 } else {
-                    displayW = bufferW
-                    displayH = bufferH
+                    displayW = cropW
+                    displayH = cropH
                 }
                 val deviceRot = hudRotation
                 val hudW: Int
@@ -187,13 +188,10 @@ class MainActivity : AppCompatActivity() {
                     hudH = displayH
                 }
                 canvas.save()
-                canvas.translate(bufferW / 2f, bufferH / 2f)
+                canvas.translate(crop.exactCenterX(), crop.exactCenterY())
                 canvas.rotate(-rotation.toFloat())
                 if (mirror) canvas.scale(-1f, 1f)
                 canvas.translate(-displayW / 2f, -displayH / 2f)
-                // Additional pivot around the display center so the HUD reads upright in the
-                // viewer's current physical orientation. Display dims fed to HudPainter swap
-                // when deviceRot is 90/270 so corners still land at the rotated screen corners.
                 canvas.translate(displayW / 2f, displayH / 2f)
                 canvas.rotate(-deviceRot.toFloat())
                 canvas.translate(-hudW / 2f, -hudH / 2f)
@@ -203,7 +201,15 @@ class MainActivity : AppCompatActivity() {
             }
             overlayEffect = effect
 
+            // ViewPort forces Preview, VideoCapture and the OverlayEffect to share a single
+            // crop rectangle. Without it, VideoCapture quietly crops the buffer to its target
+            // aspect inside the encoder while Preview shows the full buffer — the HUD ends up
+            // anchored to corners that exist in preview but not in the encoded file.
+            val viewPort = ViewPort.Builder(Rational(9, 16), binding.preview.display.rotation)
+                .setScaleType(ViewPort.FIT)
+                .build()
             val group = UseCaseGroup.Builder()
+                .setViewPort(viewPort)
                 .addUseCase(previewUseCase)
                 .addUseCase(videoCapture!!)
                 .addEffect(effect)
