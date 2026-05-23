@@ -37,15 +37,10 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * Carnet entry point.
- *
- * v0.1 scaffold roadmap:
- *   1. CameraX PreviewView + permission flow.
- *   2. Live HUD overlay (now burned into both preview and video via OverlayEffect).
- *   3. VideoCapture wired to Record button.
- *   4. Session-config screen (subject / session label / experiment label).
- *   5. Bios snapshot read on record-start, sidecar JSON write on record-stop.
- *   6. Bios companion-write of recording_session_completed event.   <- next
+ * Carnet entry point. v0.1 scaffold complete: CameraX preview + permissions, HUD burned in
+ * via OverlayEffect, VideoCapture wired to record button, session config persisted, Bios
+ * snapshot + sidecar JSON written on stop, recording_session_completed event posted back to
+ * the Bios companion.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -61,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sessionConfig: SessionConfig
     private lateinit var biosClient: BiosClient
     private lateinit var sidecarWriter: SidecarWriter
+    private lateinit var biosCompanionWriter: BiosCompanionWriter
 
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -76,6 +72,7 @@ class MainActivity : AppCompatActivity() {
         sessionConfig = SessionConfig.load(this)
         biosClient = BiosClient(this)
         sidecarWriter = SidecarWriter(this)
+        biosCompanionWriter = BiosCompanionWriter(this)
         hudPainter = HudPainter(this).apply { subject = sessionConfig.subject }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
         binding.configButton.setOnClickListener { showConfigDialog() }
@@ -306,6 +303,7 @@ class MainActivity : AppCompatActivity() {
             biosSnapshot = biosSnapshot,
         )
         sidecarWriter.write(baseName, CARNET_RELATIVE_PATH, metadata)
+        biosCompanionWriter.postRecordingCompleted(metadata)
     }
 
     private fun showConfigDialog() {

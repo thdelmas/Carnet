@@ -10,10 +10,11 @@
     <uses-permission android:name="com.bios.app.permission.READ_HEALTH" />
     <uses-permission android:name="com.bios.app.permission.WRITE_COMPANION" />
 
-    <!-- Required to query the Bios provider on Android 11+. -->
+    <!-- Required to query the Bios providers on Android 11+. -->
     <queries>
         <package android:name="com.bios.app" />
         <provider android:authorities="com.bios.app.health" />
+        <provider android:authorities="com.bios.app.companion" />
     </queries>
 
     <uses-feature
