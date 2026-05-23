@@ -73,7 +73,10 @@ class MainActivity : AppCompatActivity() {
         biosClient = BiosClient(this)
         sidecarWriter = SidecarWriter(this)
         biosCompanionWriter = BiosCompanionWriter(this)
-        hudPainter = HudPainter(this).apply { subject = sessionConfig.subject }
+        hudPainter = HudPainter(this).apply {
+            subject = sessionConfig.subject
+            session = idleSessionTag(sessionConfig.sessionLabel)
+        }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
         binding.configButton.setOnClickListener { showConfigDialog() }
         orientationListener = object : OrientationEventListener(this) {
@@ -256,6 +259,7 @@ class MainActivity : AppCompatActivity() {
                     is VideoRecordEvent.Finalize -> {
                         hudPainter.recording = false
                         hudPainter.uid = "--------"
+                        hudPainter.session = idleSessionTag(sessionConfig.sessionLabel)
                         binding.recordButton.setImageResource(R.drawable.btn_record_idle)
                         binding.configButton.isEnabled = true
                         binding.configButton.alpha = 1f
@@ -277,6 +281,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
     }
+
+    private fun idleSessionTag(label: String): String = "V--_$label"
 
     private fun writeSidecar(
         baseName: String,
@@ -333,6 +339,7 @@ class MainActivity : AppCompatActivity() {
                 sessionConfig = newConfig
                 SessionConfig.save(this, newConfig)
                 hudPainter.subject = newConfig.subject
+                hudPainter.session = idleSessionTag(newConfig.sessionLabel)
             }
             .setNegativeButton(R.string.config_cancel, null)
             .show()
