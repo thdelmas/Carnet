@@ -23,7 +23,8 @@ import java.util.Locale
 class HudPainter(context: Context) {
 
     var subject: String = "subject"
-    var session: String = "V--_SCAFFOLD"
+    var session: String = "SCAFFOLD"
+    var experiment: String = ""
     var uid: String = "--------"
     var recording: Boolean = false
 
@@ -69,14 +70,23 @@ class HudPainter(context: Context) {
         // Top-left: SUBJ.
         canvas.drawText("SUBJ ${subject.uppercase()}", pad, pad + ascent, textPaint)
 
-        // Top-right: SESSION.
-        val sessionLabel = "SESSION ${session.uppercase()}"
+        // Top-right: SESSION / EXPERIMENT (experiment dim, stacked below).
+        val sessionText = "SESSION ${session.uppercase()}"
         canvas.drawText(
-            sessionLabel,
-            width - pad - textPaint.measureText(sessionLabel),
+            sessionText,
+            width - pad - textPaint.measureText(sessionText),
             pad + ascent,
             textPaint,
         )
+        if (experiment.isNotBlank()) {
+            val expText = "EXP ${experiment.uppercase()}"
+            canvas.drawText(
+                expText,
+                width - pad - dimPaint.measureText(expText),
+                pad + ascent + lineHeight + lineGap,
+                dimPaint,
+            )
+        }
 
         // Bottom-left: DATE / TIME.
         val timeY = height - pad - descent

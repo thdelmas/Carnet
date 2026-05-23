@@ -13,12 +13,25 @@ import androidx.core.content.ContextCompat
  * framing aid — explicitly NOT part of the recorded video. The instrument is
  * helping the subject frame themselves; the recording itself stays clean of
  * compositional scaffolding.
+ *
+ * The lines are confined to the camera frame's actual content rect inside the
+ * View (computed FIT_CENTER from [contentAspect]) so the grid doesn't stretch
+ * into PreviewView's letterbox bars and end up off the framed image.
  */
 class GridOverlayView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
+
+    /** width / height of the displayed camera frame. 0 = fill the whole view (legacy). */
+    var contentAspect: Float = 0f
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
 
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.carnet_text)
@@ -30,13 +43,28 @@ class GridOverlayView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
-        val w = width.toFloat()
-        val h = height.toFloat()
-        // Two vertical lines at 1/3 and 2/3.
-        canvas.drawLine(w / 3f, 0f, w / 3f, h, linePaint)
-        canvas.drawLine(2f * w / 3f, 0f, 2f * w / 3f, h, linePaint)
-        // Two horizontal lines at 1/3 and 2/3.
-        canvas.drawLine(0f, h / 3f, w, h / 3f, linePaint)
-        canvas.drawLine(0f, 2f * h / 3f, w, 2f * h / 3f, linePaint)
+        val viewW = width.toFloat()
+        val viewH = height.toFloat()
+        val (left, top, contentW, contentH) = contentRect(viewW, viewH)
+        val right = left + contentW
+        val bottom = top + contentH
+        canvas.drawLine(left + contentW / 3f, top, left + contentW / 3f, bottom, linePaint)
+        canvas.drawLine(left + 2f * contentW / 3f, top, left + 2f * contentW / 3f, bottom, linePaint)
+        canvas.drawLine(left, top + contentH / 3f, right, top + contentH / 3f, linePaint)
+        canvas.drawLine(left, top + 2f * contentH / 3f, right, top + 2f * contentH / 3f, linePaint)
+    }
+
+    private data class Rect(val left: Float, val top: Float, val width: Float, val height: Float)
+
+    private fun contentRect(viewW: Float, viewH: Float): Rect {
+        if (contentAspect <= 0f) return Rect(0f, 0f, viewW, viewH)
+        val viewAspect = viewW / viewH
+        return if (viewAspect > contentAspect) {
+            val w = viewH * contentAspect
+            Rect((viewW - w) / 2f, 0f, w, viewH)
+        } else {
+            val h = viewW / contentAspect
+            Rect(0f, (viewH - h) / 2f, viewW, h)
+        }
     }
 }

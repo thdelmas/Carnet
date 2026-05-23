@@ -75,7 +75,8 @@ class MainActivity : AppCompatActivity() {
         biosCompanionWriter = BiosCompanionWriter(this)
         hudPainter = HudPainter(this).apply {
             subject = sessionConfig.subject
-            session = idleSessionTag(sessionConfig.sessionLabel)
+            session = sessionConfig.sessionLabel
+            experiment = sessionConfig.experimentLabel
         }
         binding.recordButton.setOnClickListener { onRecordButtonClick() }
         binding.configButton.setOnClickListener { showConfigDialog() }
@@ -147,6 +148,14 @@ class MainActivity : AppCompatActivity() {
                         "first overlay frame: size=${frame.size} rotation=${frame.rotationDegrees} " +
                             "mirror=${frame.isMirroring} crop=${frame.cropRect}",
                     )
+                    val bw = frame.size.width
+                    val bh = frame.size.height
+                    val aspect = if (frame.rotationDegrees == 90 || frame.rotationDegrees == 270) {
+                        bh.toFloat() / bw.toFloat()
+                    } else {
+                        bw.toFloat() / bh.toFloat()
+                    }
+                    binding.grid.post { binding.grid.contentAspect = aspect }
                 }
                 val canvas = frame.overlayCanvas
                 canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
@@ -237,7 +246,6 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         hudPainter.uid = uid
-        hudPainter.session = sessionTag
 
         // Snapshot Bios vitals AT record-start (per manifesto: vitals reflect the moment the
         // session began, not when the file was finalised). Null if Bios is unavailable.
@@ -259,7 +267,6 @@ class MainActivity : AppCompatActivity() {
                     is VideoRecordEvent.Finalize -> {
                         hudPainter.recording = false
                         hudPainter.uid = "--------"
-                        hudPainter.session = idleSessionTag(sessionConfig.sessionLabel)
                         binding.recordButton.setImageResource(R.drawable.btn_record_idle)
                         binding.configButton.isEnabled = true
                         binding.configButton.alpha = 1f
@@ -281,8 +288,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
     }
-
-    private fun idleSessionTag(label: String): String = "V--_$label"
 
     private fun writeSidecar(
         baseName: String,
@@ -339,7 +344,8 @@ class MainActivity : AppCompatActivity() {
                 sessionConfig = newConfig
                 SessionConfig.save(this, newConfig)
                 hudPainter.subject = newConfig.subject
-                hudPainter.session = idleSessionTag(newConfig.sessionLabel)
+                hudPainter.session = newConfig.sessionLabel
+                hudPainter.experiment = newConfig.experimentLabel
             }
             .setNegativeButton(R.string.config_cancel, null)
             .show()
