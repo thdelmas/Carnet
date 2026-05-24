@@ -10,6 +10,17 @@
          the worker still runs, it just can't surface the prompt. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- CameraCaptureService owns CameraX (Preview + VideoCapture + OverlayEffect) as an
+         FGS of type camera|microphone. ScreenCaptureService owns MediaProjection as a
+         separate FGS of type mediaProjection. Having the camera client FGS-covered up
+         front means MediaProjection's FGS doesn't trigger an OS-level camera re-handshake
+         when armed mid-recording (the disconnect that previously killed takes with
+         ERROR_SOURCE_INACTIVE). The mediaProjection FGS perm is mandatory from Android 14. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
     <!-- Bios companion-app integration (read vitals at record start, write session events). -->
     <uses-permission android:name="com.bios.app.permission.READ_HEALTH" />
     <uses-permission android:name="com.bios.app.permission.WRITE_COMPANION" />
@@ -53,6 +64,23 @@
             android:label="@string/history_title"
             android:parentActivityName=".MainActivity"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait" />
+
+        <service
+            android:name=".CameraCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="camera|microphone" />
+
+        <service
+            android:name=".ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
     </application>
 

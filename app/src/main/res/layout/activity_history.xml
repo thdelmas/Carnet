@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/carnet_black">
+    android:background="@color/role_background">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/list"
@@ -22,10 +22,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/history_empty"
-        android:textColor="@color/carnet_text_dim"
-        android:textSize="14sp"
-        android:fontFamily="monospace"
-        android:letterSpacing="0.15"
+        android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
         android:textAllCaps="true"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"

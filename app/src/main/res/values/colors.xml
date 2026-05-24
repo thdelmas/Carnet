@@ -1,9 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Carnet color tokens.
+
+  Two layers:
+    1. Identity-named (carnet_*) — legacy + identity-specific tones still used by
+       the HUD painter and a couple of layouts. Kept for HUD historical reasons.
+    2. Bios-ecosystem semantic roles (role_*) — the 14-token canonical set from
+       /home/mia/Bios/docs/design-tokens/colors.yaml. Layouts and themes MUST
+       reference role_* for cross-app consistency; carnet_* survives only for the
+       HUD's hand-tuned palette where the colour itself is part of the instrument.
+
+  Identity hue: sage green #78A06E (botanical / instrument register; doesn't
+  collide with Bios teal, W2F cyan, Smokeless orange, Idun red, SoulRadio gold,
+  Virgil safety-orange).
+-->
 <resources>
+
+    <!-- Identity-named (HUD + historical layouts) -->
     <color name="carnet_black">#080E0A</color>
     <color name="carnet_panel">#0C140F</color>
     <color name="carnet_text">#E6EFD6</color>
     <color name="carnet_text_dim">#B4C8A0</color>
     <color name="carnet_accent">#78A06E</color>
     <color name="carnet_rec">#FF3030</color>
+
+    <!-- Bios-ecosystem role tokens (canonical 14-token set) -->
+    <color name="role_primary">#78A06E</color>              <!-- = carnet_accent -->
+    <color name="role_on_primary">#080E0A</color>           <!-- = carnet_black -->
+    <color name="role_primary_container">#1F2D1E</color>    <!-- darkened sage tint, dark-mode tonal -->
+    <color name="role_on_primary_container">#E6EFD6</color> <!-- = carnet_text -->
+    <color name="role_secondary">#009688</color>            <!-- Borrowed: Bios teal (kinship pattern from spec §2). -->
+    <color name="role_on_secondary">#080E0A</color>
+    <color name="role_background">#080E0A</color>           <!-- = carnet_black -->
+    <color name="role_surface">#0C140F</color>              <!-- = carnet_panel -->
+    <color name="role_surface_variant">#15201A</color>      <!-- one notch above surface -->
+    <color name="role_text_primary">#E6EFD6</color>         <!-- = carnet_text -->
+    <color name="role_text_secondary">#B4C8A0</color>       <!-- = carnet_text_dim -->
+    <color name="role_divider">#66B4C8A0</color>            <!-- text_secondary @ 40% alpha -->
+    <color name="role_success">#00E5A0</color>              <!-- universal (mint) -->
+    <color name="role_warning">#FFB830</color>              <!-- universal (amber) -->
+    <color name="role_error">#F43F5E</color>                <!-- universal (red); carnet_rec stays separate for HUD -->
+    <color name="role_pending">#FFF4DA</color>              <!-- universal (soft yellow) -->
+
 </resources>

@@ -3,13 +3,10 @@
     <string name="app_name">Carnet</string>
     <string name="permission_denied">Camera and microphone required.\nGrant in system settings.</string>
     <string name="record_button">Record</string>
-    <string name="config_button">Session config</string>
-    <string name="config_title">Session config</string>
+    <string name="config_button">Settings</string>
     <string name="config_subject">Subject</string>
     <string name="config_session_label">Session label</string>
     <string name="config_experiment_label">Experiment label</string>
-    <string name="config_save">Save</string>
-    <string name="config_cancel">Cancel</string>
     <string name="history_button">Recordings history</string>
     <string name="history_title">Sessions</string>
     <string name="history_empty">No recordings yet</string>
@@ -17,4 +14,19 @@
     <string name="cadence_channel_description">Weekly nudge to record the next Carnet session.</string>
     <string name="cadence_notif_title">Carnet</string>
     <string name="cadence_notif_body">A week since your last session — record this week\'s.</string>
+    <string name="screen_capture_button">Screen capture</string>
+    <string name="screen_capture_active">Screen capture armed</string>
+    <string name="screen_capture_channel_name">Screen capture</string>
+    <string name="screen_capture_denied">Screen-capture consent denied</string>
+    <string name="camera_service_channel_name">Camera</string>
+    <string name="camera_service_active">Camera active</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_session_section">Session</string>
+    <string name="settings_bios_section">Bios integration</string>
+    <string name="settings_bios_toggle">Send recording events to Bios</string>
+    <string name="settings_bios_status_not_installed">Bios not installed</string>
+    <string name="settings_bios_status_not_enabled">Disabled</string>
+    <string name="settings_bios_status_connected">Connected</string>
+    <string name="settings_bios_pending_approval">Pending approval in Bios → Companion Apps</string>
+    <string name="bios_open_app">Open Bios</string>
 </resources>

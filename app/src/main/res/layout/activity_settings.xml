@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings — Bios design system §6.d. Anatomy:
+    - Session config (Carnet's existing subject/session/experiment, moved here from
+      the modal dialog now that there's a real Settings screen)
+    - Bios integration block: section header + toggle + status pill +
+      conditional pending banner + conditional Open Bios button
+-->
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/role_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="24dp">
+
+        <!-- Session config section ============================================ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_session_section"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textColor="@color/role_text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/config_subject"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true" />
+        <EditText
+            android:id="@+id/subject_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:imeOptions="actionNext"
+            android:fontFamily="monospace"
+            android:autofillHints="username" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/config_session_label"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true" />
+        <EditText
+            android:id="@+id/session_label_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:imeOptions="actionNext"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/config_experiment_label"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true" />
+        <EditText
+            android:id="@+id/experiment_label_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:imeOptions="actionDone"
+            android:fontFamily="monospace" />
+
+        <!-- Bios integration section (cross-app mandatory; design system §6.d) ========= -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/settings_bios_section"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textColor="@color/role_text_primary" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/bios_send_events_toggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:text="@string/settings_bios_toggle"
+            android:textColor="@color/role_text_primary" />
+
+        <!-- Status pill -->
+        <TextView
+            android:id="@+id/bios_status_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="32dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            android:background="@drawable/pill_dimmed"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textColor="@color/role_text_secondary"
+            android:textAllCaps="true" />
+
+        <!-- Pending-approval banner (visible only when LastPushOutcome == PENDING_APPROVAL) -->
+        <LinearLayout
+            android:id="@+id/bios_pending_banner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:background="@drawable/banner_pending"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_bios_pending_approval"
+                android:textColor="@color/role_text_primary"
+                android:textSize="14sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/bios_pending_open"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:minHeight="48dp"
+                android:text="@string/bios_open_app"
+                android:textColor="@color/role_on_primary"
+                android:backgroundTint="@android:color/transparent" />
+        </LinearLayout>
+
+        <!-- Standalone Open Bios button (visible whenever Bios is installed and banner isn't shown) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/bios_open_button"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:text="@string/bios_open_app" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
