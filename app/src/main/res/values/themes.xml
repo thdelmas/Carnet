@@ -1,10 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.Carnet" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/carnet_accent</item>
-        <item name="colorOnPrimary">@color/carnet_black</item>
-        <item name="android:statusBarColor" tools:targetApi="l">@color/carnet_black</item>
-        <item name="android:navigationBarColor" tools:targetApi="l">@color/carnet_black</item>
+
+    <!--
+      Carnet is locked dark (instrument register: dark glass + sage + cream HUD).
+      Parent is the Material 3 Dark variant, not DayNight — light-mode would
+      break the HUD's contrast assumptions.
+    -->
+    <style name="Theme.Carnet" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/role_primary</item>
+        <item name="colorOnPrimary">@color/role_on_primary</item>
+        <item name="colorPrimaryContainer">@color/role_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/role_on_primary_container</item>
+        <item name="colorSecondary">@color/role_secondary</item>
+        <item name="colorOnSecondary">@color/role_on_secondary</item>
+        <item name="android:colorBackground">@color/role_background</item>
+        <item name="colorSurface">@color/role_surface</item>
+        <item name="colorSurfaceVariant">@color/role_surface_variant</item>
+        <item name="android:textColorPrimary">@color/role_text_primary</item>
+        <item name="android:textColorSecondary">@color/role_text_secondary</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/role_background</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@color/role_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
     </style>
+
+    <!--
+      Ecosystem extension: instrument readout (Bios design system §3).
+      Mandatory across all Bios-ecosystem apps for data-bearing text — times,
+      durations, quantities, biomarker values, UIDs. Never apply to body copy.
+    -->
+    <style name="TextAppearance.Carnet.Instrument" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textColor">@color/role_text_primary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="TextAppearance.Carnet.Instrument.Small" parent="TextAppearance.Carnet.Instrument">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/role_text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.Carnet.Instrument.Large" parent="TextAppearance.Carnet.Instrument">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/role_text_primary</item>
+    </style>
+
 </resources>

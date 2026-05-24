@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pill background for BiosClient.Status.NOT_INSTALLED — dimmed surface variant. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/role_surface_variant" />
+    <corners android:radius="12dp" />
+</shape>

@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Carnet main viewfinder. Compliance notes (Bios design system v1):
+    - Spacing on the canonical scale (4/8/12/16/24/32/48dp). 16dp is the
+      default screen edge inset; 48dp is the touch-target floor.
+    - Role tokens (@color/role_*) rather than identity-named carnet_* where
+      semantic role applies.
+    - Side buttons are 48dp touch targets with 24dp icons; the record button
+      stays at 68dp (oversized intentionally — primary action).
+-->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/carnet_black">
+    android:background="@color/role_background">
 
     <androidx.camera.view.PreviewView
         android:id="@+id/preview"
@@ -29,7 +38,7 @@
         android:id="@+id/record_button"
         android:layout_width="68dp"
         android:layout_height="68dp"
-        android:layout_marginBottom="56dp"
+        android:layout_marginBottom="48dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/record_button"
         android:src="@drawable/btn_record_idle"
@@ -39,10 +48,10 @@
 
     <ImageButton
         android:id="@+id/config_button"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginBottom="20dp"
-        android:layout_marginEnd="32dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginBottom="24dp"
+        android:layout_marginEnd="16dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/config_button"
         android:src="@drawable/ic_config"
@@ -51,15 +60,28 @@
 
     <ImageButton
         android:id="@+id/history_button"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginBottom="20dp"
-        android:layout_marginStart="32dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginBottom="24dp"
+        android:layout_marginStart="16dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/history_button"
         android:src="@drawable/ic_history"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageButton
+        android:id="@+id/screen_capture_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginBottom="24dp"
+        android:layout_marginStart="16dp"
+        android:alpha="0.4"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/screen_capture_button"
+        android:src="@drawable/ic_screen_capture"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/history_button" />
 
     <TextView
         android:id="@+id/permission_message"
@@ -68,10 +90,7 @@
         android:layout_marginHorizontal="32dp"
         android:gravity="center"
         android:text="@string/permission_denied"
-        android:textColor="@color/carnet_text"
-        android:textSize="14sp"
-        android:fontFamily="monospace"
-        android:letterSpacing="0.1"
+        android:textAppearance="@style/TextAppearance.Carnet.Instrument"
         android:textAllCaps="true"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
