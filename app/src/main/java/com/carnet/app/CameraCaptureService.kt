@@ -3,6 +3,7 @@ package com.carnet.app
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -180,6 +181,17 @@ class CameraCaptureService : LifecycleService() {
         providerFuture.addListener({
             val provider = providerFuture.get()
 
+            // Release the prior binding + OverlayEffect before allocating new ones.
+            // Skipping this leaks the old effect: bindToLifecycle below would detach it
+            // from the camera (CameraUseCaseAdapter logs "Unused effects: …"), but its
+            // EGLContext stays alive on Carnet-OverlayGL and crashes on its next frame
+            // with "checkAndUpdateEglState: invalid current EGLContext" →
+            // nativeUpdateTexImage. Fires on every rebind — rotation-triggered take
+            // rebinds and activity restarts both hit it.
+            provider.unbindAll()
+            overlayEffect?.close()
+            overlayEffect = null
+
             val previewUseCase = Preview.Builder().build().also {
                 it.setSurfaceProvider(surfaceProvider)
             }
@@ -301,7 +313,6 @@ class CameraCaptureService : LifecycleService() {
                 .addUseCase(newVideoCapture)
                 .addEffect(effect)
                 .build()
-            provider.unbindAll()
             provider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, group)
             Log.i(TAG, "bound camera at displayRotation=$displayRotation")
             onBound?.invoke()
@@ -545,10 +556,23 @@ class CameraCaptureService : LifecycleService() {
     }
 
     private fun startForegroundCompat() {
+        // Route notification taps back into the existing MainActivity (paired with
+        // android:launchMode="singleTask" in the manifest). Without a content intent,
+        // some launchers fell back to the default launcher intent and spawned a fresh
+        // MainActivity, which rebound the camera mid-take.
+        val contentPending = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_config)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.camera_service_active))
+            .setContentIntent(contentPending)
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

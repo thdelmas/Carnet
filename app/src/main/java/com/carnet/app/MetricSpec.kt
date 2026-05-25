@@ -20,8 +20,17 @@ data class MetricSpec(
     enum class Aggregation {
         /** Most recent reading (e.g. current heart rate, latest body mass weigh-in). */
         LATEST,
-        /** Count of readings in the trailing 24 h (e.g. cigarettes today, joints today). */
-        COUNT_24H,
+        /**
+         * Sum of the `value` column over the trailing 24 h. Robust for both
+         * one-row-per-event ledgers (value=1, sum == count) and
+         * one-row-per-session ledgers where `value` carries the dose (sum == dose
+         * total). Replaces the earlier COUNT_24H which mis-read multi-quantity rows
+         * as 1 each.
+         */
+        SUM_24H,
+        /** Mean of the `value` column over the trailing 7 days. For sleep-class
+         *  metrics where one number per night smoothes to something meaningful. */
+        AVG_7D,
     }
 
     /**
@@ -31,7 +40,7 @@ data class MetricSpec(
     fun formatValue(raw: Double?): String {
         if (raw == null) return "--"
         val asInt = raw.toInt()
-        val isInteger = aggregation == Aggregation.COUNT_24H ||
+        val isInteger = aggregation == Aggregation.SUM_24H ||
             unit in INT_UNITS ||
             raw == asInt.toDouble()
         return if (isInteger) asInt.toString() else String.format(Locale.US, "%.1f", raw)
@@ -41,16 +50,43 @@ data class MetricSpec(
         private val INT_UNITS = setOf("bpm", "score", "events", "ms")
 
         val CATALOG: List<MetricSpec> = listOf(
+            // Passive biometrics ---------------------------------------------------
             MetricSpec("heart_rate", "HEART RATE", "bpm", Aggregation.LATEST),
             MetricSpec("heart_rate_variability", "HRV", "ms", Aggregation.LATEST),
             MetricSpec("resting_heart_rate", "RESTING HR", "bpm", Aggregation.LATEST),
             MetricSpec("body_mass", "BODY MASS", "kg", Aggregation.LATEST),
             MetricSpec("body_fat_pct", "BODY FAT", "%", Aggregation.LATEST),
-            MetricSpec("sleep_score", "SLEEP", "score", Aggregation.LATEST),
-            MetricSpec("tobacco_use", "TOBACCO 24H", "events", Aggregation.COUNT_24H),
-            MetricSpec("cannabis_use", "CANNABIS 24H", "events", Aggregation.COUNT_24H),
-            MetricSpec("caffeine_intake", "CAFFEINE 24H", "events", Aggregation.COUNT_24H),
-            MetricSpec("alcohol_intake", "ALCOHOL 24H", "events", Aggregation.COUNT_24H),
+            MetricSpec("sleep_score", "SLEEP SCORE", "score", Aggregation.LATEST),
+            MetricSpec("sleep_duration", "SLEEP 7D AVG", "h", Aggregation.AVG_7D),
+            MetricSpec("sleep_efficiency", "SLEEP EFFICIENCY", "%", Aggregation.LATEST),
+            MetricSpec("sleep_regularity", "SLEEP REGULARITY", "score", Aggregation.LATEST),
+            // Substance use events -------------------------------------------------
+            MetricSpec("tobacco_use", "TOBACCO 24H", "events", Aggregation.SUM_24H),
+            MetricSpec("cannabis_use", "CANNABIS 24H", "events", Aggregation.SUM_24H),
+            MetricSpec("caffeine_intake", "CAFFEINE 24H", "events", Aggregation.SUM_24H),
+            MetricSpec("alcohol_intake", "ALCOHOL 24H", "events", Aggregation.SUM_24H),
+            // Self-evaluation — mood / state --------------------------------------
+            MetricSpec("mood_self_rating", "MOOD", "score", Aggregation.LATEST),
+            MetricSpec("energy_self_rating", "ENERGY", "score", Aggregation.LATEST),
+            MetricSpec("focus_self_rating", "FOCUS", "score", Aggregation.LATEST),
+            MetricSpec("stress_score", "STRESS", "score", Aggregation.LATEST),
+            // Self-evaluation — craving intensity ---------------------------------
+            MetricSpec("tobacco_craving_intensity", "TOBACCO CRAVING", "score", Aggregation.LATEST),
+            MetricSpec("cannabis_craving_intensity", "CANNABIS CRAVING", "score", Aggregation.LATEST),
+            // Self-evaluation — identity / agency ---------------------------------
+            MetricSpec("smoker_identity_self_rating", "SMOKER IDENTITY", "score", Aggregation.LATEST),
+            MetricSpec("change_agency_self_rating", "CHANGE AGENCY", "score", Aggregation.LATEST),
+            MetricSpec("social_belonging_self_rating", "SOCIAL BELONGING", "score", Aggregation.LATEST),
+            // Self-evaluation — symptoms ------------------------------------------
+            MetricSpec("pain_score", "PAIN", "score", Aggregation.LATEST),
+            MetricSpec("headache_intensity_nrs", "HEADACHE", "score", Aggregation.LATEST),
+            // Self-evaluation — chemosensory --------------------------------------
+            MetricSpec("smell_self_rating", "SMELL", "score", Aggregation.LATEST),
+            MetricSpec("taste_self_rating", "TASTE", "score", Aggregation.LATEST),
+            // Self-evaluation — respiratory ---------------------------------------
+            MetricSpec("breath_ease_self_rating", "BREATH EASE", "score", Aggregation.LATEST),
+            MetricSpec("cough_frequency_self_rating", "COUGH FREQUENCY", "score", Aggregation.LATEST),
+            MetricSpec("sputum_self_rating", "SPUTUM", "score", Aggregation.LATEST),
         )
 
         fun byKey(key: String): MetricSpec? = CATALOG.firstOrNull { it.key == key }
