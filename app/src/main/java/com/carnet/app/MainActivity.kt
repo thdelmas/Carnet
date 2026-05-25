@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private var orientationListener: OrientationEventListener? = null
     @Volatile private var hudRotation: Int = 0
     private lateinit var sessionConfig: SessionConfig
+    private var hasInitiallyBoundCamera = false
 
     private val requestPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
                 ?: @Suppress("DEPRECATION") windowManager.defaultDisplay?.rotation
                 ?: 0
             binder.bindCamera(binding.preview.surfaceProvider, rotation)
+            hasInitiallyBoundCamera = true
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     binder.state.collect { onRecordingStateChanged(it) }
@@ -131,6 +133,31 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissions.launch(REQUIRED_PERMISSIONS)
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Backgrounding tears down PreviewView's SurfaceView surface and closes the
+        // bound SurfaceRequest. The existing Preview use case won't ask for a new one,
+        // so on return the camera renders into nothing — symptom: black preview after
+        // returning from another app. Skip the first onStart (right after onCreate) —
+        // bindCamera runs from onServiceConnected once the service binds, and the
+        // activity uses singleTask so subsequent foregrounds reuse this instance.
+        //
+        // Branch on recording state: a full rebind during recording closes the
+        // Recorder's DeferrableSurface and kills the take. When recording is live,
+        // just re-set the Preview's surface provider to trigger a fresh SurfaceRequest
+        // without touching VideoCapture or the OverlayEffect.
+        val binder = serviceBinder
+        if (binder == null || !hasInitiallyBoundCamera) return
+        val recording = binder.state.value is CameraCaptureService.RecordingState.Recording
+        if (recording && binder.refreshPreviewSurface(binding.preview.surfaceProvider)) {
+            return
+        }
+        val rotation = binding.preview.display?.rotation
+            ?: @Suppress("DEPRECATION") windowManager.defaultDisplay?.rotation
+            ?: 0
+        binder.bindCamera(binding.preview.surfaceProvider, rotation)
     }
 
     override fun onResume() {

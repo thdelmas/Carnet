@@ -47,7 +47,7 @@ data class MetricSpec(
     }
 
     companion object {
-        private val INT_UNITS = setOf("bpm", "score", "events", "ms")
+        private val INT_UNITS = setOf("bpm", "score", "events", "ms", "sessions/day", "servings/day", "drinks/day")
 
         val CATALOG: List<MetricSpec> = listOf(
             // Passive biometrics ---------------------------------------------------
@@ -61,10 +61,10 @@ data class MetricSpec(
             MetricSpec("sleep_efficiency", "SLEEP EFFICIENCY", "%", Aggregation.LATEST),
             MetricSpec("sleep_regularity", "SLEEP REGULARITY", "score", Aggregation.LATEST),
             // Substance use events -------------------------------------------------
-            MetricSpec("tobacco_use", "TOBACCO 24H", "events", Aggregation.SUM_24H),
-            MetricSpec("cannabis_use", "CANNABIS 24H", "events", Aggregation.SUM_24H),
-            MetricSpec("caffeine_intake", "CAFFEINE 24H", "events", Aggregation.SUM_24H),
-            MetricSpec("alcohol_intake", "ALCOHOL 24H", "events", Aggregation.SUM_24H),
+            MetricSpec("tobacco_use", "TOBACCO", "sessions/day", Aggregation.SUM_24H),
+            MetricSpec("cannabis_use", "CANNABIS", "sessions/day", Aggregation.SUM_24H),
+            MetricSpec("caffeine_intake", "CAFFEINE", "servings/day", Aggregation.SUM_24H),
+            MetricSpec("alcohol_intake", "ALCOHOL", "drinks/day", Aggregation.SUM_24H),
             // Self-evaluation — mood / state --------------------------------------
             MetricSpec("mood_self_rating", "MOOD", "score", Aggregation.LATEST),
             MetricSpec("energy_self_rating", "ENERGY", "score", Aggregation.LATEST),

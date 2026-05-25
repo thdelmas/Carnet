@@ -72,6 +72,19 @@ class IntroSlidePainter(context: Context) {
 
         val cx = w / 2f
 
+        when (slide) {
+            is IntroSlide.Metric -> drawMetric(canvas, w, h, cx, slide)
+            is IntroSlide.Metadata -> drawMetadata(canvas, w, h, cx, slide, shortSide)
+        }
+
+        val footer = buildString {
+            if (!seriesName.isNullOrBlank()) append(seriesName.uppercase()).append("  ·  ")
+            append(dateFormat.format(Date(capturedAtMillis)))
+        }
+        canvas.drawText(footer, cx, h * 0.94f, footerPaint)
+    }
+
+    private fun drawMetric(canvas: Canvas, w: Float, h: Float, cx: Float, slide: IntroSlide.Metric) {
         canvas.drawText(slide.label, cx, h * 0.18f, labelPaint)
         canvas.drawText(slide.value, cx, h * 0.42f, valuePaint)
         canvas.drawText(slide.unit, cx, h * 0.52f, unitPaint)
@@ -83,11 +96,35 @@ class IntroSlidePainter(context: Context) {
             val gh = h * 0.14f
             drawGraph(canvas, x = (w - gw) / 2f, y = h * 0.72f, w = gw, h = gh, values = slide.history)
         }
-        val footer = buildString {
-            if (!seriesName.isNullOrBlank()) append(seriesName.uppercase()).append("  ·  ")
-            append(dateFormat.format(Date(capturedAtMillis)))
+    }
+
+    private fun drawMetadata(
+        canvas: Canvas,
+        @Suppress("UNUSED_PARAMETER") w: Float,
+        h: Float,
+        cx: Float,
+        slide: IntroSlide.Metadata,
+        shortSide: Float,
+    ) {
+        // Identity slide. Two-line stack: SERIES name big, then a quartet of dim
+        // identifying rows (subject / session / experiment / take tag) so the take
+        // is identifiable even when the filename is stripped.
+        val seriesPaint = valuePaint
+        seriesPaint.textSize = shortSide * 0.10f
+        canvas.drawText(slide.seriesName.uppercase(), cx, h * 0.34f, seriesPaint)
+
+        val rowPaint = deltaPaint
+        rowPaint.textSize = shortSide * 0.045f
+        val rowYBase = h * 0.50f
+        val rowGap = shortSide * 0.075f
+        listOf(
+            "SUBJECT  ${slide.subject.uppercase()}",
+            "SESSION  ${slide.sessionLabel.uppercase()}",
+            "EXPERIMENT  ${slide.experimentLabel.uppercase()}",
+            "TAKE  ${slide.sessionTag}",
+        ).forEachIndexed { i, line ->
+            canvas.drawText(line, cx, rowYBase + rowGap * i, rowPaint)
         }
-        canvas.drawText(footer, cx, h * 0.94f, footerPaint)
     }
 
     private fun drawGraph(canvas: Canvas, x: Float, y: Float, w: Float, h: Float, values: List<Double>) {
@@ -131,16 +168,26 @@ class IntroSlidePainter(context: Context) {
 }
 
 /**
- * One full-screen intro slide. The painter expects pre-formatted display strings for
- * the current and start values, plus the raw numeric history (oldest-first, *including*
- * the current take's value) for the line graph. Empty history hides the graph; single-
- * point history hides the delta line — the slide reads as "first take in this series".
+ * One full-screen intro slide. Either a per-metric data slide (label/value/unit + the
+ * optional delta + history graph for trend), or a one-shot metadata slide identifying
+ * the take: series, session, subject. The metadata slide leads the deck so the take
+ * is identifiable on its own when clipped or shared without the filename.
  */
-data class IntroSlide(
-    val label: String,
-    val value: String,
-    val unit: String,
-    val startValue: String?,
-    val deltaText: String?,
-    val history: List<Double>,
-)
+sealed interface IntroSlide {
+    data class Metric(
+        val label: String,
+        val value: String,
+        val unit: String,
+        val startValue: String?,
+        val deltaText: String?,
+        val history: List<Double>,
+    ) : IntroSlide
+
+    data class Metadata(
+        val seriesName: String,
+        val subject: String,
+        val sessionLabel: String,
+        val sessionTag: String,
+        val experimentLabel: String,
+    ) : IntroSlide
+}
