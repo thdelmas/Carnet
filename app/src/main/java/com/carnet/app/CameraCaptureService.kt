@@ -68,6 +68,7 @@ class CameraCaptureService : LifecycleService() {
 
     private val binder = LocalBinder()
     private var videoCapture: VideoCapture<Recorder>? = null
+    private var currentPreview: Preview? = null
     private var overlayEffect: OverlayEffect? = null
     private var overlayThread: HandlerThread? = null
     private var activeRecording: Recording? = null
@@ -109,6 +110,21 @@ class CameraCaptureService : LifecycleService() {
 
         fun bindCamera(surfaceProvider: Preview.SurfaceProvider, displayRotation: Int) =
             this@CameraCaptureService.bindCamera(surfaceProvider, displayRotation)
+
+        /**
+         * Re-issue a SurfaceRequest on the existing Preview without tearing down the
+         * camera pipeline. Used when the activity returns to foreground *during* a
+         * recording — full rebind would close the Recorder's DeferrableSurface and
+         * orphan the take (`SurfaceProcessorNode: Downstream node failed to provide
+         * Surface. Target: VIDEO_CAPTURE`). Returns false when there is no Preview to
+         * refresh; the caller should then fall back to bindCamera.
+         */
+        fun refreshPreviewSurface(surfaceProvider: Preview.SurfaceProvider): Boolean {
+            val preview = currentPreview ?: return false
+            lastSurfaceProvider = surfaceProvider
+            preview.setSurfaceProvider(ContextCompat.getMainExecutor(this@CameraCaptureService), surfaceProvider)
+            return true
+        }
 
         fun setHudConfig(config: SessionConfig) {
             hudPainter.subject = config.subject
@@ -195,6 +211,7 @@ class CameraCaptureService : LifecycleService() {
             val previewUseCase = Preview.Builder().build().also {
                 it.setSurfaceProvider(surfaceProvider)
             }
+            currentPreview = previewUseCase
             val recorder = Recorder.Builder()
                 .setQualitySelector(QualitySelector.from(Quality.FHD))
                 .build()
@@ -269,10 +286,11 @@ class CameraCaptureService : LifecycleService() {
                 canvas.rotate(-deviceRot.toFloat())
                 canvas.translate(-hudW / 2f, -hudH / 2f)
 
-                // Intro slides run for the first N seconds of an active take. They draw an
-                // opaque background so the camera frame underneath is hidden, then the
-                // slide content centred. After the deck finishes we fall through to the
-                // normal HUD + camera composite for the remainder of the take.
+                // Background layer: intro slide (opaque), or screen-capture full-frame
+                // (opaque when armed), or — falling through — the camera frame underneath.
+                // The HUD frame + corner infos draw last on every branch so the recording
+                // is always identifiable: UID, timestamps, and the corner brackets stay
+                // visible across the data slides and the cast-app footage too.
                 val intro = introState
                 val slideIdx = intro?.currentSlideIndex(SystemClock.elapsedRealtime())
                 if (intro != null && slideIdx != null) {
@@ -283,13 +301,9 @@ class CameraCaptureService : LifecycleService() {
                         intro.capturedAtMillis,
                     )
                 } else {
-                    // When screen capture is armed the take is about the app, not the
-                    // operator — draw the screen full-frame instead of a corner PiP and
-                    // hide the camera entirely. When not armed we fall through and the
-                    // camera frame underneath shows through normally.
                     drawScreenFullFrameIfArmed(canvas, hudW, hudH)
-                    hudPainter.draw(canvas, hudW, hudH)
                 }
+                hudPainter.draw(canvas, hudW, hudH)
                 canvas.restore()
                 true
             }
@@ -379,13 +393,23 @@ class CameraCaptureService : LifecycleService() {
         } else {
             BiosSnapshot(values = emptyMap(), capturedAtMillis = recordStartMillis)
         }
-        introState = if (series != null && specs.isNotEmpty()) {
-            // Walk every prior sidecar for this series so the slide can anchor on the
-            // first-ever value and draw the trajectory. Sync read on the main thread;
+        introState = if (series != null) {
+            // Walk every prior sidecar for this series so each metric slide can anchor on
+            // the first-ever value and draw the trajectory. Sync read on the main thread;
             // typical series sizes are tiny and we need the data ready before the first
             // encoded frame so the intro deck is whole when playback starts.
             val past = SeriesHistory.loadForSeries(this, series.id)
-            val slides = specs.map { spec ->
+            // Metadata slide leads the deck so the take is self-identifying even if the
+            // file is shared without its filename. Renders unconditionally when a series
+            // is active, even if the series has no metrics pinned yet.
+            val metadataSlide = IntroSlide.Metadata(
+                seriesName = series.name,
+                subject = config.subject,
+                sessionLabel = config.sessionLabel,
+                sessionTag = sessionTag,
+                experimentLabel = config.experimentLabel,
+            )
+            val metricSlides = specs.map { spec ->
                 val currentRaw = biosSnapshot.values[spec.key]
                 val pastValues = past.mapNotNull { it.values[spec.key] }
                 val startRaw = pastValues.firstOrNull()
@@ -396,7 +420,7 @@ class CameraCaptureService : LifecycleService() {
                     val magnitude = spec.formatValue(kotlin.math.abs(delta))
                     "$sign$magnitude vs ${spec.formatValue(startRaw)} at start"
                 } else null
-                IntroSlide(
+                IntroSlide.Metric(
                     label = spec.label,
                     value = spec.formatValue(currentRaw),
                     unit = spec.unit,
@@ -406,7 +430,7 @@ class CameraCaptureService : LifecycleService() {
                 )
             }
             IntroState(
-                slides = slides,
+                slides = listOf<IntroSlide>(metadataSlide) + metricSlides,
                 seriesId = series.id,
                 seriesName = series.name,
                 snapshot = biosSnapshot,
@@ -592,6 +616,6 @@ class CameraCaptureService : LifecycleService() {
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         private val VERSION_PREFIX = Regex("^V(\\d+)$")
         /** How long each intro slide stays on screen (and in the encoded file). */
-        private const val SLIDE_DURATION_MS = 3000L
+        private const val SLIDE_DURATION_MS = 1500L
     }
 }
