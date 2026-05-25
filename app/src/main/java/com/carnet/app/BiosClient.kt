@@ -59,7 +59,8 @@ class BiosClient(private val context: Context) {
 
     private fun readMetric(spec: MetricSpec, nowMillis: Long): Double? = when (spec.aggregation) {
         MetricSpec.Aggregation.LATEST -> readLatest(spec.key, nowMillis)
-        MetricSpec.Aggregation.COUNT_24H -> readCount(spec.key, nowMillis - DAY_MS, nowMillis)
+        MetricSpec.Aggregation.SUM_24H -> readSumValues(spec.key, nowMillis - DAY_MS, nowMillis)
+        MetricSpec.Aggregation.AVG_7D -> readAvgValues(spec.key, nowMillis - 7L * DAY_MS, nowMillis)
     }
 
     private fun readLatest(metricType: String, nowMillis: Long): Double? {
@@ -85,9 +86,40 @@ class BiosClient(private val context: Context) {
         }
     }
 
-    private fun readCount(metricType: String, startMillis: Long, endMillis: Long): Double? {
+    private fun readSumValues(metricType: String, startMillis: Long, endMillis: Long): Double? {
+        // Sum the `value` column, not the row count: a single Smokeless row can carry
+        // value=N for "N cigarettes in this session". Counting rows would have read 1
+        // for that case; summing reads N and degrades gracefully to N for the
+        // one-row-per-event ledgers where value=1.
         val uri = readingsUri(metricType, startMillis, endMillis)
-        return query(uri) { cursor -> cursor.count.toDouble() }
+        return query(uri) { cursor ->
+            val valueIdx = cursor.getColumnIndex(COL_VALUE)
+            if (valueIdx < 0) return@query null
+            var sum = 0.0
+            var any = false
+            while (cursor.moveToNext()) {
+                if (cursor.isNull(valueIdx)) continue
+                sum += cursor.getDouble(valueIdx)
+                any = true
+            }
+            if (any) sum else null
+        }
+    }
+
+    private fun readAvgValues(metricType: String, startMillis: Long, endMillis: Long): Double? {
+        val uri = readingsUri(metricType, startMillis, endMillis)
+        return query(uri) { cursor ->
+            val valueIdx = cursor.getColumnIndex(COL_VALUE)
+            if (valueIdx < 0) return@query null
+            var sum = 0.0
+            var n = 0
+            while (cursor.moveToNext()) {
+                if (cursor.isNull(valueIdx)) continue
+                sum += cursor.getDouble(valueIdx)
+                n++
+            }
+            if (n > 0) sum / n else null
+        }
     }
 
     private fun readingsUri(metricType: String, startMillis: Long, endMillis: Long): Uri =
