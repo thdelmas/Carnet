@@ -77,6 +77,43 @@
             android:imeOptions="actionDone"
             android:fontFamily="monospace" />
 
+        <!-- Series section ================================================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/settings_series_section"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textColor="@color/role_text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/settings_series_active_label"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/settings_series_active"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:gravity="center_vertical"
+            android:fontFamily="monospace"
+            android:textColor="@color/role_text_primary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/settings_series_manage"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="@string/settings_series_manage" />
+
         <!-- Bios integration section (cross-app mandatory; design system §6.d) ========= -->
         <TextView
             android:layout_width="wrap_content"

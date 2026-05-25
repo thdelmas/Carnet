@@ -50,18 +50,30 @@ class SidecarWriter(private val context: Context) {
         put("session_number", m.sessionNumber)
         put("uid", m.uid)
         put("date_local", m.dateLocal)
+        put("record_start_ms", m.recordStartMillis)
+        put("record_end_ms", m.recordEndMillis)
         put("record_start_iso", isoUtc(m.recordStartMillis))
         put("record_end_iso", isoUtc(m.recordEndMillis))
         put("duration_ms", m.recordEndMillis - m.recordStartMillis)
+        put("series_id", m.seriesId ?: JSONObject.NULL)
+        put("series_name", m.seriesName ?: JSONObject.NULL)
         put("bios_snapshot", m.biosSnapshot?.let(::biosJson) ?: JSONObject.NULL)
     }
 
     private fun biosJson(b: BiosSnapshot): JSONObject = JSONObject().apply {
-        put("heart_rate", b.heartRate ?: JSONObject.NULL)
-        put("heart_rate_variability", b.heartRateVariability ?: JSONObject.NULL)
-        put("resting_heart_rate", b.restingHeartRate ?: JSONObject.NULL)
-        put("sleep_score", b.sleepScore ?: JSONObject.NULL)
-        put("tobacco_use_24h", b.tobaccoUseEvents24h ?: JSONObject.NULL)
+        // Generic metric-keyed map so the sidecar shape doesn't drift every time a new
+        // Bios metric becomes interesting. Each entry: { value, unit, aggregation }
+        // resolved against the MetricSpec catalog so downstream consumers don't have to.
+        val values = JSONObject()
+        for ((key, raw) in b.values) {
+            val spec = MetricSpec.byKey(key)
+            values.put(key, JSONObject().apply {
+                put("value", raw ?: JSONObject.NULL)
+                put("unit", spec?.unit ?: JSONObject.NULL)
+                put("aggregation", spec?.aggregation?.name ?: JSONObject.NULL)
+            })
+        }
+        put("values", values)
         put("captured_at_iso", isoUtc(b.capturedAtMillis))
     }
 
@@ -69,7 +81,7 @@ class SidecarWriter(private val context: Context) {
 
     companion object {
         private const val TAG = "Carnet/Sidecar"
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
         private val ISO_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }

@@ -29,4 +29,30 @@
     <string name="settings_bios_status_connected">Connected</string>
     <string name="settings_bios_pending_approval">Pending approval in Bios → Companion Apps</string>
     <string name="bios_open_app">Open Bios</string>
+
+    <!-- Series management -->
+    <string name="settings_series_section">Series</string>
+    <string name="settings_series_active_label">Active series</string>
+    <string name="settings_series_none">None — intro slides off</string>
+    <string name="settings_series_manage">Manage series</string>
+    <string name="series_title">Series</string>
+    <string name="series_section_header">Investigation series</string>
+    <string name="series_section_help">A series pins which Bios metrics show as intro slides at the start of every take. All takes in the same series use the same set so longitudinal comparison stays valid.</string>
+    <string name="series_empty">No series yet — add one to enable intro slides.</string>
+    <string name="series_add">+ New series</string>
+    <string name="series_metric_count">%1$d metric(s)</string>
+    <string name="series_row_edit">Edit</string>
+    <string name="series_row_delete">Delete</string>
+    <string name="series_dialog_title_new">New series</string>
+    <string name="series_dialog_title_edit">Edit series</string>
+    <string name="series_dialog_name_label">Name</string>
+    <string name="series_dialog_name_hint">e.g. Quit Smoking Spring 2026</string>
+    <string name="series_dialog_metrics_label">Intro metrics</string>
+    <string name="series_dialog_metrics_help">One full-screen slide per metric at the start of the recording.</string>
+    <string name="series_dialog_save">Save</string>
+    <string name="series_dialog_cancel">Cancel</string>
+    <string name="series_name_required">Name required</string>
+    <string name="series_delete_title">Delete series?</string>
+    <string name="series_delete_message">Delete \"%1$s\"? Takes already recorded keep their sidecar reference.</string>
+    <string name="series_delete_confirm">Delete</string>
 </resources>
