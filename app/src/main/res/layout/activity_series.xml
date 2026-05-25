@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Series catalog: list of investigative protocols + add/edit affordances. Each row
+  has a radio that promotes the series to active; only one can be active at a time.
+-->
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/role_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/series_section_header"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textColor="@color/role_text_primary" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/series_section_help"
+            android:textSize="14sp"
+            android:textColor="@color/role_text_secondary" />
+
+        <TextView
+            android:id="@+id/series_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/series_empty"
+            android:textAppearance="@style/TextAppearance.Carnet.Instrument.Small"
+            android:textColor="@color/role_text_secondary"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/series_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/series_add"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:minHeight="48dp"
+            android:text="@string/series_add" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

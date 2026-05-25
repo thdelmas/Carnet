@@ -33,6 +33,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var pendingBanner: LinearLayout
     private lateinit var pendingOpenButton: MaterialButton
     private lateinit var openBiosButton: MaterialButton
+    private lateinit var seriesActiveLabel: TextView
+    private lateinit var seriesManageButton: MaterialButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +53,11 @@ class SettingsActivity : AppCompatActivity() {
         pendingBanner = findViewById(R.id.bios_pending_banner)
         pendingOpenButton = findViewById(R.id.bios_pending_open)
         openBiosButton = findViewById(R.id.bios_open_button)
+        seriesActiveLabel = findViewById(R.id.settings_series_active)
+        seriesManageButton = findViewById(R.id.settings_series_manage)
+        seriesManageButton.setOnClickListener {
+            startActivity(SeriesActivity.intent(this))
+        }
 
         subjectInput.setText(sessionConfig.subject)
         sessionInput.setText(sessionConfig.sessionLabel)
@@ -89,6 +96,16 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         renderBiosBlock()
+        renderSeriesBlock()
+    }
+
+    private fun renderSeriesBlock() {
+        val selected = SeriesPreferences.selected(this)
+        seriesActiveLabel.text = if (selected == null) {
+            getString(R.string.settings_series_none)
+        } else {
+            "${selected.name} · ${selected.metricKeys.size} metric(s)"
+        }
     }
 
     private fun renderBiosBlock() {

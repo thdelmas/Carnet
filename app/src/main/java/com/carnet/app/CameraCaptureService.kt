@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Rational
@@ -71,6 +72,7 @@ class CameraCaptureService : LifecycleService() {
     private var activeRecording: Recording? = null
     private val _state = MutableStateFlow<RecordingState>(RecordingState.Idle)
     private lateinit var hudPainter: HudPainter
+    private lateinit var introPainter: IntroSlidePainter
     private lateinit var biosClient: BiosClient
     private lateinit var sidecarWriter: SidecarWriter
     private lateinit var biosCompanionWriter: BiosCompanionWriter
@@ -79,6 +81,25 @@ class CameraCaptureService : LifecycleService() {
     private var overlayAspectListener: ((Float) -> Unit)? = null
     private var lastSurfaceProvider: Preview.SurfaceProvider? = null
     @Volatile private var currentBoundRotation: Int = Surface.ROTATION_0
+    @Volatile private var introState: IntroState? = null
+
+    /** Slide deck snapshotted at startRecording. Cleared at finalize. */
+    private data class IntroState(
+        val slides: List<IntroSlide>,
+        val seriesId: String,
+        val seriesName: String,
+        val snapshot: BiosSnapshot,
+        val capturedAtMillis: Long,
+        val startElapsedMs: Long,
+    ) {
+        /** Slide index for the given elapsedRealtime, or null once the deck is done. */
+        fun currentSlideIndex(nowElapsed: Long): Int? {
+            val elapsed = nowElapsed - startElapsedMs
+            if (elapsed < 0) return null
+            val idx = (elapsed / SLIDE_DURATION_MS).toInt()
+            return if (idx in slides.indices) idx else null
+        }
+    }
 
     inner class LocalBinder : Binder() {
         // Getter, not a field initializer — `binder` is declared before `_state` in the
@@ -113,6 +134,7 @@ class CameraCaptureService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         hudPainter = HudPainter(this)
+        introPainter = IntroSlidePainter(this)
         biosClient = BiosClient(this)
         sidecarWriter = SidecarWriter(this)
         biosCompanionWriter = BiosCompanionWriter(this)
@@ -234,8 +256,24 @@ class CameraCaptureService : LifecycleService() {
                 canvas.translate(displayW / 2f, displayH / 2f)
                 canvas.rotate(-deviceRot.toFloat())
                 canvas.translate(-hudW / 2f, -hudH / 2f)
-                drawScreenPipIfArmed(canvas, hudW, hudH)
-                hudPainter.draw(canvas, hudW, hudH)
+
+                // Intro slides run for the first N seconds of an active take. They draw an
+                // opaque background so the camera frame underneath is hidden, then the
+                // slide content centred. After the deck finishes we fall through to the
+                // normal HUD + camera composite for the remainder of the take.
+                val intro = introState
+                val slideIdx = intro?.currentSlideIndex(SystemClock.elapsedRealtime())
+                if (intro != null && slideIdx != null) {
+                    introPainter.draw(
+                        canvas, hudW, hudH,
+                        intro.slides[slideIdx],
+                        intro.seriesName,
+                        intro.capturedAtMillis,
+                    )
+                } else {
+                    drawScreenPipIfArmed(canvas, hudW, hudH)
+                    hudPainter.draw(canvas, hudW, hudH)
+                }
                 canvas.restore()
                 true
             }
@@ -313,10 +351,54 @@ class CameraCaptureService : LifecycleService() {
 
         hudPainter.uid = uid
 
-        // Snapshot Bios vitals AT record-start (manifesto: vitals reflect the moment the
-        // session began, not when the file was finalised). Null if Bios is unavailable.
-        val biosSnapshot = biosClient.snapshot()
+        // Snapshot Bios metrics AT record-start (manifesto: vitals reflect the moment the
+        // session began, not when the file was finalised). If a series is selected we pull
+        // exactly the metrics that series asks for and pre-build the intro slide deck;
+        // without a series the snapshot is empty and recording starts normally with no
+        // intro. Either way the snapshot is best-effort — null values render as "--".
         val recordStartMillis = System.currentTimeMillis()
+        val series = SeriesPreferences.selected(this)
+        val specs = series?.specs() ?: emptyList()
+        val biosSnapshot = if (specs.isNotEmpty()) {
+            biosClient.snapshot(specs, recordStartMillis)
+        } else {
+            BiosSnapshot(values = emptyMap(), capturedAtMillis = recordStartMillis)
+        }
+        introState = if (series != null && specs.isNotEmpty()) {
+            // Walk every prior sidecar for this series so the slide can anchor on the
+            // first-ever value and draw the trajectory. Sync read on the main thread;
+            // typical series sizes are tiny and we need the data ready before the first
+            // encoded frame so the intro deck is whole when playback starts.
+            val past = SeriesHistory.loadForSeries(this, series.id)
+            val slides = specs.map { spec ->
+                val currentRaw = biosSnapshot.values[spec.key]
+                val pastValues = past.mapNotNull { it.values[spec.key] }
+                val startRaw = pastValues.firstOrNull()
+                val history = pastValues + listOfNotNull(currentRaw)
+                val deltaText = if (startRaw != null && currentRaw != null) {
+                    val delta = currentRaw - startRaw
+                    val sign = if (delta >= 0) "+" else "-"
+                    val magnitude = spec.formatValue(kotlin.math.abs(delta))
+                    "$sign$magnitude vs ${spec.formatValue(startRaw)} at start"
+                } else null
+                IntroSlide(
+                    label = spec.label,
+                    value = spec.formatValue(currentRaw),
+                    unit = spec.unit,
+                    startValue = startRaw?.let(spec::formatValue),
+                    deltaText = deltaText,
+                    history = history,
+                )
+            }
+            IntroState(
+                slides = slides,
+                seriesId = series.id,
+                seriesName = series.name,
+                snapshot = biosSnapshot,
+                capturedAtMillis = recordStartMillis,
+                startElapsedMs = SystemClock.elapsedRealtime(),
+            )
+        } else null
 
         // asPersistentRecording is a defensive belt-and-braces: with camera ownership
         // FGS-covered by this service, MediaProjection should no longer kick the camera,
@@ -343,6 +425,7 @@ class CameraCaptureService : LifecycleService() {
                         hudPainter.recording = false
                         hudPainter.uid = "--------"
                         activeRecording = null
+                        introState = null
                         _state.value = RecordingState.Idle
                         if (!event.hasError()) {
                             writeSidecar(
@@ -355,6 +438,7 @@ class CameraCaptureService : LifecycleService() {
                                 dateLocal = today,
                                 recordStartMillis = recordStartMillis,
                                 biosSnapshot = biosSnapshot,
+                                series = series,
                             )
                             CadenceReminder.scheduleNext(this)
                         }
@@ -373,6 +457,7 @@ class CameraCaptureService : LifecycleService() {
         dateLocal: String,
         recordStartMillis: Long,
         biosSnapshot: BiosSnapshot?,
+        series: Series?,
     ) {
         val metadata = SidecarMetadata(
             schemaVersion = SidecarWriter.SCHEMA_VERSION,
@@ -386,6 +471,8 @@ class CameraCaptureService : LifecycleService() {
             recordStartMillis = recordStartMillis,
             recordEndMillis = System.currentTimeMillis(),
             biosSnapshot = biosSnapshot,
+            seriesId = series?.id,
+            seriesName = series?.name,
         )
         sidecarWriter.write(baseName, CARNET_RELATIVE_PATH, metadata)
         // Respect the Settings toggle — opt-out users get a local-only file with no
@@ -480,5 +567,7 @@ class CameraCaptureService : LifecycleService() {
         private const val CARNET_RELATIVE_PATH = "Movies/Carnet/"
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         private val VERSION_PREFIX = Regex("^V(\\d+)$")
+        /** How long each intro slide stays on screen (and in the encoded file). */
+        private const val SLIDE_DURATION_MS = 3000L
     }
 }

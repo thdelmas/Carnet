@@ -72,6 +72,13 @@
             android:parentActivityName=".MainActivity"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".SeriesActivity"
+            android:exported="false"
+            android:label="@string/series_title"
+            android:parentActivityName=".SettingsActivity"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CameraCaptureService"
             android:exported="false"
