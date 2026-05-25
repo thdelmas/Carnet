@@ -77,7 +77,13 @@ class MainActivity : AppCompatActivity() {
             binder.setOverlayAspectListener { aspect ->
                 binding.grid.post { binding.grid.contentAspect = aspect }
             }
-            binder.bindCamera(binding.preview.surfaceProvider, binding.preview.display.rotation)
+            // PreviewView.display is null until the view is attached to a window. The
+            // service connection can fire before that, so fall back to the window's
+            // display (and 0 as a final safety net for the portrait-locked activity).
+            val rotation = binding.preview.display?.rotation
+                ?: @Suppress("DEPRECATION") windowManager.defaultDisplay?.rotation
+                ?: 0
+            binder.bindCamera(binding.preview.surfaceProvider, rotation)
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     binder.state.collect { onRecordingStateChanged(it) }

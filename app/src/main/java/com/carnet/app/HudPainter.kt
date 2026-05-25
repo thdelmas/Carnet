@@ -9,6 +9,8 @@ import android.content.Context
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
+import kotlin.math.abs
 
 /**
  * Paints the Carnet HUD (subject / session / date / time / rec / uid) into an
@@ -88,11 +90,12 @@ class HudPainter(context: Context) {
             )
         }
 
-        // Bottom-left: DATE / TIME.
+        // Bottom-left: DATE / TIME. TZ is appended to the time line so a HUD-only viewer
+        // can disambiguate the wall-clock from the UTC sidecar without guessing the locale.
         val timeY = height - pad - descent
         val dateY = timeY - lineHeight - lineGap
         canvas.drawText(dateFormat.format(now), pad, dateY, dimPaint)
-        canvas.drawText(timeFormat.format(now), pad, timeY, textPaint)
+        canvas.drawText("${timeFormat.format(now)} ${tzLabel(now)}", pad, timeY, textPaint)
 
         // Bottom-right: UID / REC|STBY.
         val uidLabel = "UID ${uid.uppercase()}"
@@ -103,6 +106,18 @@ class HudPainter(context: Context) {
             dimPaint,
         )
         drawRecIndicator(canvas, now, width.toFloat(), pad, dateY, ascent)
+    }
+
+    private fun tzLabel(now: Date): String {
+        // Compute fresh each frame so DST transitions and device-timezone changes show up
+        // immediately. getOffset(when) respects historical DST rules for the given instant.
+        val offsetMin = TimeZone.getDefault().getOffset(now.time) / 60_000
+        val sign = if (offsetMin >= 0) "+" else "-"
+        val abs = abs(offsetMin)
+        val hours = abs / 60
+        val mins = abs % 60
+        return if (mins == 0) "UTC$sign$hours"
+        else "UTC$sign$hours:${mins.toString().padStart(2, '0')}"
     }
 
     private fun applySize(paint: Paint, textSize: Float, shadowRadius: Float) {
