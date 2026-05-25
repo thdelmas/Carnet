@@ -271,7 +271,11 @@ class CameraCaptureService : LifecycleService() {
                         intro.capturedAtMillis,
                     )
                 } else {
-                    drawScreenPipIfArmed(canvas, hudW, hudH)
+                    // When screen capture is armed the take is about the app, not the
+                    // operator — draw the screen full-frame instead of a corner PiP and
+                    // hide the camera entirely. When not armed we fall through and the
+                    // camera frame underneath shows through normally.
+                    drawScreenFullFrameIfArmed(canvas, hudW, hudH)
                     hudPainter.draw(canvas, hudW, hudH)
                 }
                 canvas.restore()
@@ -505,31 +509,27 @@ class CameraCaptureService : LifecycleService() {
         return max + 1
     }
 
-    private fun drawScreenPipIfArmed(canvas: Canvas, hudW: Int, hudH: Int) {
+    private fun drawScreenFullFrameIfArmed(canvas: Canvas, hudW: Int, hudH: Int) {
         val bmp = ScreenCaptureService.activeSource?.latestBitmap ?: return
         if (bmp.isRecycled) return
-        val margin = hudW * 0.04f
-        // Landscape recordings need a much larger PiP envelope so source-screen text
-        // stays readable: a 30%-of-width anchor that works in portrait collapses the
-        // PiP to a narrow strip in landscape because the wide bitmap shrinks
-        // vertically. Allocate up to 55% of the canvas long edge and clamp by height
-        // so a portrait bitmap dropped into a landscape frame stays on-canvas.
-        val isLandscape = hudW > hudH
-        val maxW = hudW * if (isLandscape) 0.55f else 0.30f
-        val maxH = hudH * if (isLandscape) 0.85f else 0.55f
+        // Opaque background paints over the camera frame underneath; any
+        // letterbox left by aspect-mismatch then reads as black bars rather than
+        // leaked face.
+        canvas.drawColor(Color.BLACK)
+        val canvasAspect = hudW.toFloat() / hudH.toFloat()
         val bmpAspect = bmp.width.toFloat() / bmp.height.toFloat()
-        val pipW: Float
-        val pipH: Float
-        if (maxW / maxH > bmpAspect) {
-            pipH = maxH
-            pipW = pipH * bmpAspect
+        val drawW: Float
+        val drawH: Float
+        if (canvasAspect > bmpAspect) {
+            drawH = hudH.toFloat()
+            drawW = drawH * bmpAspect
         } else {
-            pipW = maxW
-            pipH = pipW / bmpAspect
+            drawW = hudW.toFloat()
+            drawH = drawW / bmpAspect
         }
-        val left = hudW - pipW - margin
-        val top = margin
-        canvas.drawBitmap(bmp, null, RectF(left, top, left + pipW, top + pipH), null)
+        val left = (hudW - drawW) / 2f
+        val top = (hudH - drawH) / 2f
+        canvas.drawBitmap(bmp, null, RectF(left, top, left + drawW, top + drawH), null)
     }
 
     private fun ensureChannel() {
