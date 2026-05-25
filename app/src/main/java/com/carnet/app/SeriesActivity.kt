@@ -1,8 +1,9 @@
 package com.carnet.app
 
-import android.app.AlertDialog
 import android.content.Context
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
@@ -13,6 +14,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
  * Series catalog manager. The user creates one series per investigative protocol
@@ -30,6 +32,7 @@ class SeriesActivity : AppCompatActivity() {
     private lateinit var emptyState: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val t0 = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_series)
         title = getString(R.string.series_title)
@@ -37,11 +40,14 @@ class SeriesActivity : AppCompatActivity() {
         container = findViewById(R.id.series_list)
         emptyState = findViewById(R.id.series_empty)
         findViewById<View>(R.id.series_add).setOnClickListener { editDialog(existing = null) }
+        Log.i(TAG, "onCreate took ${SystemClock.elapsedRealtime() - t0}ms")
     }
 
     override fun onResume() {
+        val t0 = SystemClock.elapsedRealtime()
         super.onResume()
         render()
+        Log.i(TAG, "onResume+render took ${SystemClock.elapsedRealtime() - t0}ms")
     }
 
     private fun render() {
@@ -72,19 +78,25 @@ class SeriesActivity : AppCompatActivity() {
     }
 
     private fun editDialog(existing: Series?) {
+        val t0 = SystemClock.elapsedRealtime()
         val view = layoutInflater.inflate(R.layout.dialog_series_edit, null)
         val nameInput = view.findViewById<EditText>(R.id.dialog_series_name)
         val metricsContainer = view.findViewById<LinearLayout>(R.id.dialog_series_metrics)
 
         nameInput.setText(existing?.name.orEmpty())
         val initialKeys = existing?.metricKeys.orEmpty().toMutableSet()
+        val textColor = ContextCompat.getColor(this, R.color.role_text_primary)
+        val minHeightPx = (48 * resources.displayMetrics.density).toInt()
+        // Plain widget CheckBox (not Material) — Material themed checkboxes can each pay a
+        // heavy first-inflate cost, which on cold-launch summed to a ~6s main-thread block
+        // visible as an ANR.
         for (spec in MetricSpec.CATALOG) {
             val cb = CheckBox(this).apply {
                 text = "${spec.label}  (${spec.unit})"
                 textSize = 14f
-                setTextColor(ContextCompat.getColor(this@SeriesActivity, R.color.role_text_primary))
+                setTextColor(textColor)
                 isChecked = spec.key in initialKeys
-                minHeight = (48 * resources.displayMetrics.density).toInt()
+                minHeight = minHeightPx
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -94,7 +106,10 @@ class SeriesActivity : AppCompatActivity() {
             metricsContainer.addView(cb)
         }
 
-        AlertDialog.Builder(this)
+        // MaterialAlertDialogBuilder cooperates with Material themes more cheaply than the
+        // plain AlertDialog.Builder, which on Material-themed activities sometimes triggers
+        // a second theme-inflation pass.
+        MaterialAlertDialogBuilder(this)
             .setTitle(
                 if (existing == null) R.string.series_dialog_title_new
                 else R.string.series_dialog_title_edit
@@ -120,10 +135,11 @@ class SeriesActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.series_dialog_cancel, null)
             .show()
+        Log.i(TAG, "editDialog built+shown in ${SystemClock.elapsedRealtime() - t0}ms")
     }
 
     private fun deleteConfirm(s: Series) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.series_delete_title)
             .setMessage(getString(R.string.series_delete_message, s.name))
             .setPositiveButton(R.string.series_delete_confirm) { _, _ ->
@@ -135,6 +151,7 @@ class SeriesActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val TAG = "Carnet/Series"
         fun intent(context: Context) =
             android.content.Intent(context, SeriesActivity::class.java)
     }
