@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Rational
+import android.view.Surface
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.MirrorMode
@@ -76,6 +77,8 @@ class CameraCaptureService : LifecycleService() {
     private var firstFrameLogged = false
     @Volatile private var hudRotation: Int = 0
     private var overlayAspectListener: ((Float) -> Unit)? = null
+    private var lastSurfaceProvider: Preview.SurfaceProvider? = null
+    @Volatile private var currentBoundRotation: Int = Surface.ROTATION_0
 
     inner class LocalBinder : Binder() {
         // Getter, not a field initializer — `binder` is declared before `_state` in the
@@ -144,6 +147,13 @@ class CameraCaptureService : LifecycleService() {
     }
 
     private fun bindCamera(surfaceProvider: Preview.SurfaceProvider, displayRotation: Int) {
+        lastSurfaceProvider = surfaceProvider
+        bindInternal(displayRotation, onBound = null)
+    }
+
+    private fun bindInternal(displayRotation: Int, onBound: (() -> Unit)?) {
+        val surfaceProvider = lastSurfaceProvider ?: return
+        currentBoundRotation = displayRotation
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
             val provider = providerFuture.get()
@@ -224,7 +234,7 @@ class CameraCaptureService : LifecycleService() {
                 canvas.translate(displayW / 2f, displayH / 2f)
                 canvas.rotate(-deviceRot.toFloat())
                 canvas.translate(-hudW / 2f, -hudH / 2f)
-                drawScreenPipIfArmed(canvas, hudW)
+                drawScreenPipIfArmed(canvas, hudW, hudH)
                 hudPainter.draw(canvas, hudW, hudH)
                 canvas.restore()
                 true
@@ -235,8 +245,13 @@ class CameraCaptureService : LifecycleService() {
             // crop rectangle. Without it, VideoCapture quietly crops the buffer to its target
             // aspect inside the encoder while Preview shows the full buffer — the HUD ends up
             // anchored to corners that exist in preview but not in the encoded file.
+            //
+            // FILL_CENTER (not FIT) so the encoded video is true 9:16: the Pixel front sensor
+            // is 4:3, and FIT preserved that ratio in the file (1080×1440), which Reels and
+            // other vertical-video platforms reject as non-portrait. FILL_CENTER center-crops
+            // the 4:3 buffer to 9:16, producing a 1080×1920 file that uploads cleanly.
             val viewPort = ViewPort.Builder(Rational(9, 16), displayRotation)
-                .setScaleType(ViewPort.FIT)
+                .setScaleType(ViewPort.FILL_CENTER)
                 .build()
             val group = UseCaseGroup.Builder()
                 .setViewPort(viewPort)
@@ -246,11 +261,37 @@ class CameraCaptureService : LifecycleService() {
                 .build()
             provider.unbindAll()
             provider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, group)
+            Log.i(TAG, "bound camera at displayRotation=$displayRotation")
+            onBound?.invoke()
         }, ContextCompat.getMainExecutor(this))
     }
 
     @SuppressLint("MissingPermission", "RestrictedApi")
     private fun startRecording(config: SessionConfig) {
+        if (activeRecording != null) return
+
+        // Match the file's container orientation to how the phone is held NOW. Setting
+        // VideoCapture.targetRotation alone is a no-op here because UseCaseGroup's ViewPort
+        // pins the rotation of every bound use case; the only way to actually change the
+        // encoded rotation is to rebuild the ViewPort with the new rotation and rebind.
+        // We do this only at startRecording (one brief preview re-handshake per take, not
+        // on every phone rotation) so idle preview stays stable.
+        val targetRotation = when (hudRotation) {
+            90 -> Surface.ROTATION_270
+            180 -> Surface.ROTATION_180
+            270 -> Surface.ROTATION_90
+            else -> Surface.ROTATION_0
+        }
+        if (targetRotation != currentBoundRotation && lastSurfaceProvider != null) {
+            Log.i(TAG, "rebinding for take: $currentBoundRotation → $targetRotation")
+            bindInternal(targetRotation) { startRecordingNow(config) }
+        } else {
+            startRecordingNow(config)
+        }
+    }
+
+    @SuppressLint("MissingPermission", "RestrictedApi")
+    private fun startRecordingNow(config: SessionConfig) {
         val capture = videoCapture ?: return
         if (activeRecording != null) return
 
@@ -377,12 +418,28 @@ class CameraCaptureService : LifecycleService() {
         return max + 1
     }
 
-    private fun drawScreenPipIfArmed(canvas: Canvas, hudW: Int) {
+    private fun drawScreenPipIfArmed(canvas: Canvas, hudW: Int, hudH: Int) {
         val bmp = ScreenCaptureService.activeSource?.latestBitmap ?: return
         if (bmp.isRecycled) return
         val margin = hudW * 0.04f
-        val pipW = hudW * 0.30f
-        val pipH = pipW * bmp.height / bmp.width
+        // Landscape recordings need a much larger PiP envelope so source-screen text
+        // stays readable: a 30%-of-width anchor that works in portrait collapses the
+        // PiP to a narrow strip in landscape because the wide bitmap shrinks
+        // vertically. Allocate up to 55% of the canvas long edge and clamp by height
+        // so a portrait bitmap dropped into a landscape frame stays on-canvas.
+        val isLandscape = hudW > hudH
+        val maxW = hudW * if (isLandscape) 0.55f else 0.30f
+        val maxH = hudH * if (isLandscape) 0.85f else 0.55f
+        val bmpAspect = bmp.width.toFloat() / bmp.height.toFloat()
+        val pipW: Float
+        val pipH: Float
+        if (maxW / maxH > bmpAspect) {
+            pipH = maxH
+            pipW = pipH * bmpAspect
+        } else {
+            pipW = maxW
+            pipH = pipW / bmpAspect
+        }
         val left = hudW - pipW - margin
         val top = margin
         canvas.drawBitmap(bmp, null, RectF(left, top, left + pipW, top + pipH), null)
